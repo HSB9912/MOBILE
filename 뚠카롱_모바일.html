@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>뚠카롱 길드 관리 (Mobile)</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap');
+        *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+        body{font-family:'Noto Sans KR',sans-serif;background:#f5f5f7;color:#1d1d1f;overflow:hidden;height:100dvh;display:flex;flex-direction:column}
+        ::-webkit-scrollbar{display:none}
+
+        /* Loading */
+        #loading{position:fixed;inset:0;background:#fff;z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;transition:opacity .3s}
+        #loading.hide{opacity:0;pointer-events:none}
+        .spinner{width:40px;height:40px;border:3px solid #f0f0f0;border-top-color:#ec4899;border-radius:50%;animation:spin .6s linear infinite}
+        @keyframes spin{to{transform:rotate(360deg)}}
+
+        /* Toast */
+        #toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(20px);background:#1d1d1f;color:#fff;padding:12px 24px;border-radius:16px;font-size:12px;font-weight:700;opacity:0;transition:all .3s;z-index:999;white-space:nowrap;pointer-events:none}
+        #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+        /* Header */
+        .app-header{background:#fff;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #e5e5e7;flex-shrink:0;z-index:50}
+        .app-header h1{font-size:16px;font-weight:900;letter-spacing:-.5px;margin-left:8px}
+        .header-badge{font-size:9px;background:#fdf2f8;color:#ec4899;padding:4px 10px;border-radius:20px;font-weight:700}
+        .header-btn{width:36px;height:36px;border:1px solid #e5e5e7;border-radius:12px;background:#fff;display:flex;align-items:center;justify-content:center;color:#999;font-size:14px}
+
+        /* Content */
+        #content{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding:12px;padding-bottom:16px}
+
+        /* Bottom Nav */
+        .bottom-nav{display:flex;background:#fff;border-top:1px solid #e5e5e7;flex-shrink:0;padding:4px 0;padding-bottom:env(safe-area-inset-bottom,4px);z-index:50}
+        .nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;padding:8px 0 4px;gap:2px;border:none;background:none;color:#999;font-size:9px;font-weight:700;transition:color .2s}
+        .nav-btn.active{color:#ec4899}
+        .nav-btn i{font-size:18px}
+
+        /* Cards */
+        .card{background:#fff;border-radius:20px;border:1px solid #e5e5e7;overflow:hidden;margin-bottom:10px}
+        .card-header{padding:14px 16px;font-size:11px;font-weight:900;color:#999;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid #f5f5f7}
+        .card-body{padding:14px 16px}
+
+        /* Stat Cards */
+        .stat-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
+        .stat-card{background:#fff;border-radius:16px;border:1px solid #e5e5e7;padding:16px;text-align:center}
+        .stat-card.primary{background:linear-gradient(135deg,#ec4899,#f43f5e);border:none;color:#fff}
+        .stat-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;opacity:.7;margin-bottom:4px}
+        .stat-value{font-size:22px;font-weight:900;letter-spacing:-1px}
+
+        /* Guild Chips */
+        .chip-row{display:flex;gap:6px;overflow-x:auto;padding:2px 0 8px;flex-shrink:0}
+        .chip{flex-shrink:0;padding:6px 14px;border-radius:12px;font-size:11px;font-weight:700;border:1px solid #e5e5e7;background:#fff;color:#666;white-space:nowrap}
+        .chip.active{background:#1d1d1f;color:#fff;border-color:#1d1d1f}
+        .chip.pink{background:#ec4899;color:#fff;border-color:#ec4899}
+
+        /* Search */
+        .search-bar{position:relative;margin-bottom:8px}
+        .search-bar input{width:100%;padding:10px 12px 10px 36px;border:1px solid #e5e5e7;border-radius:14px;font-size:13px;font-weight:700;background:#f9f9fb;outline:none}
+        .search-bar input:focus{border-color:#ec4899;background:#fff}
+        .search-bar i{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#ccc;font-size:12px}
+
+        /* Table-like list */
+        .member-item{display:flex;align-items:center;padding:12px 0;border-bottom:1px solid #f5f5f7;gap:10px}
+        .member-item:last-child{border:none}
+        .member-name{font-size:13px;font-weight:700;flex:1;min-width:0}
+        .member-name small{display:block;font-size:10px;color:#999;font-weight:500}
+        .member-badge{font-size:9px;padding:3px 8px;border-radius:8px;font-weight:700;background:#f5f5f7;color:#666;white-space:nowrap}
+        .member-badge.admin-blue{background:#0066FF;color:#fff}
+        .member-badge.admin-green{background:#92D050;color:#000}
+        .member-badge.role-special{background:#FF99FF;color:#fff}
+
+        /* Input groups */
+        .form-group{margin-bottom:14px}
+        .form-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#999;margin-bottom:4px;padding-left:2px}
+        .form-input{width:100%;padding:12px 14px;border:1px solid #e5e5e7;border-radius:14px;font-size:13px;font-weight:700;background:#f9f9fb;outline:none;-webkit-appearance:none}
+        .form-input:focus{border-color:#ec4899;background:#fff}
+        select.form-input{color:#1d1d1f}
+
+        /* Buttons */
+        .btn{width:100%;padding:14px;border:none;border-radius:16px;font-size:12px;font-weight:900;cursor:pointer;transition:all .15s}
+        .btn-primary{background:#1d1d1f;color:#fff}
+        .btn-primary:active{transform:scale(.97);background:#000}
+        .btn-danger{background:#ef4444;color:#fff}
+        .btn-danger:active{transform:scale(.97)}
+        .btn-ghost{background:#f5f5f7;color:#666}
+        .btn-sm{padding:8px 16px;width:auto;border-radius:10px;font-size:11px}
+        .btn-pink{background:#ec4899;color:#fff}
+        .btn-pink:active{transform:scale(.97)}
+
+        /* Bottom Sheet Modal */
+        .sheet-overlay{position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:200;opacity:0;pointer-events:none;transition:opacity .25s}
+        .sheet-overlay.open{opacity:1;pointer-events:auto}
+        .sheet{position:fixed;bottom:0;left:0;right:0;background:#fff;border-radius:24px 24px 0 0;z-index:201;transform:translateY(100%);transition:transform .3s ease;max-height:90dvh;display:flex;flex-direction:column}
+        .sheet-overlay.open .sheet{transform:translateY(0)}
+        .sheet-handle{width:36px;height:4px;background:#ddd;border-radius:2px;margin:10px auto 6px}
+        .sheet-title{padding:8px 20px 14px;font-size:15px;font-weight:900;border-bottom:1px solid #f0f0f0}
+        .sheet-body{padding:16px 20px;overflow-y:auto;flex:1;padding-bottom:env(safe-area-inset-bottom,20px)}
+
+        /* Calendar mini */
+        .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center;font-size:11px}
+        .cal-head{font-size:9px;font-weight:800;color:#bbb;padding:4px 0}
+        .cal-day{aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:10px;font-weight:700;position:relative;font-size:12px}
+        .cal-day.today{background:#ec4899;color:#fff}
+        .cal-day.thu{color:#ec4899;background:#fdf2f8}
+        .cal-day.dim{opacity:.2}
+        .cal-day .dot{width:4px;height:4px;background:#ec4899;border-radius:50%;position:absolute;bottom:3px}
+        .cal-day.today .dot{background:#fff}
+        .cal-day .evt-text{font-size:7px;font-weight:800;color:#ec4899;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;position:absolute;bottom:1px}
+        .cal-day.today .evt-text{color:#fff}
+
+        /* Suro input rows */
+        .suro-item{display:flex;align-items:center;padding:10px 0;border-bottom:1px solid #f5f5f7;gap:10px}
+        .suro-item:last-child{border:none}
+        .suro-name{font-size:12px;font-weight:700;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        .suro-prev{font-size:10px;color:#ccc;font-weight:700;width:50px;text-align:right;flex-shrink:0}
+        .suro-input{width:80px;padding:8px;border:1px solid #e5e5e7;border-radius:10px;font-size:13px;font-weight:700;text-align:right;background:#f9f9fb;outline:none;flex-shrink:0}
+        .suro-input:focus{border-color:#3b82f6;background:#fff}
+
+        /* Penalty / Bail rows */
+        .history-item{padding:10px 0;border-bottom:1px solid #f5f5f7}
+        .history-item:last-child{border:none}
+        .history-top{display:flex;justify-content:space-between;align-items:center}
+        .history-name{font-size:12px;font-weight:700}
+        .history-value{font-size:12px;font-weight:900;color:#ec4899}
+        .history-sub{font-size:10px;color:#999;margin-top:2px}
+
+        /* Analysis Score Table */
+        .score-row{display:flex;align-items:center;padding:10px 0;border-bottom:1px solid #f5f5f7;gap:8px}
+        .score-row:last-child{border:none}
+        .score-rank{width:24px;font-size:10px;color:#ccc;font-weight:700;text-align:center;flex-shrink:0}
+        .score-name{flex:1;font-size:12px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        .score-avg{font-size:12px;font-weight:900;color:#ec4899;width:50px;text-align:right;flex-shrink:0}
+        .score-current{font-size:11px;font-weight:700;color:#666;width:50px;text-align:right;flex-shrink:0}
+        .score-zero{color:#ef4444!important}
+
+        /* Kick mode checkbox */
+        .kick-check{width:20px;height:20px;border-radius:8px;border:2px solid #e5e5e7;appearance:none;flex-shrink:0;transition:.2s}
+        .kick-check:checked{background:#ef4444;border-color:#ef4444;background-image:url("data:image/svg+xml,%3csvg viewBox='0 0 16 16' fill='white' xmlns='http://www.w3.org/2000/svg'%3e%3cpath d='M12.207 4.793a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0l-2-2a1 1 0 011.414-1.414L6.5 9.086l4.293-4.293a1 1 0 011.414 0z'/%3e%3c/svg%3e")}
+
+        /* Event list item */
+        .event-li{padding:10px 14px;background:#f9f9fb;border:1px solid #e5e5e7;border-radius:12px;font-size:12px;font-weight:700;display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+        .event-li.selected{background:#fdf2f8;border-color:#f472b6;color:#db2777}
+
+        /* Pagination */
+        .pager{display:flex;justify-content:center;align-items:center;gap:16px;padding:10px 0}
+        .pager button{width:32px;height:32px;border:1px solid #e5e5e7;border-radius:10px;background:#fff;display:flex;align-items:center;justify-content:center;color:#999;font-size:10px}
+        .pager button:disabled{opacity:.3}
+        .pager span{font-size:11px;font-weight:700;color:#999}
+
+        /* Guild count bar */
+        .guild-bar{height:4px;background:#f0f0f0;border-radius:2px;overflow:hidden;margin-top:6px}
+        .guild-bar-fill{height:100%;background:#ec4899;border-radius:2px;transition:width .5s}
+
+        /* Utility */
+        .fade-in{animation:fadeIn .25s ease}
+        @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+        .hidden{display:none!important}
+        .flex-center{display:flex;align-items:center;justify-content:center}
+        .text-pink{color:#ec4899}
+        .text-red{color:#ef4444}
+        .text-blue{color:#3b82f6}
+        .gap-2{gap:8px}
+        .mt-2{margin-top:8px}
+        .mb-2{margin-bottom:8px}
+        .truncate{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    </style>
+</head>
+<body>
+
+<div id="loading"><div class="spinner"></div><p style="margin-top:16px;font-size:12px;font-weight:700;color:#ec4899">데이터 동기화 중...</p></div>
+<div id="toast"></div>
+
+<!-- Header -->
+<div class="app-header">
+    <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIEAAACECAIAAAA4D9+0AAABCGlDQ1BJQ0MgUHJvZmlsZQAAeJxjYGA8wQAELAYMDLl5JUVB7k4KEZFRCuwPGBiBEAwSk4sLGHADoKpv1yBqL+viUYcLcKakFicD6Q9ArFIEtBxopAiQLZIOYWuA2EkQtg2IXV5SUAJkB4DYRSFBzkB2CpCtkY7ETkJiJxcUgdT3ANk2uTmlyQh3M/Ck5oUGA2kOIJZhKGYIYnBncAL5H6IkfxEDg8VXBgbmCQixpJkMDNtbGRgkbiHEVBYwMPC3MDBsO48QQ4RJQWJRIliIBYiZ0tIYGD4tZ2DgjWRgEL7AwMAVDQsIHG5TALvNnSEfCNMZchhSgSKeDHkMyQx6QJYRgwGDIYMZAKbWPz9HbOBQAAAXwElEQVR4nO1dWawk11k+tXb13n3vnXtnPJ7V9njs2JOx49ixYxIHbLDJIjlCAUUyfmF7QCBiKyRiEwlCIcpDiBBLEiQeCIgkEOAhIeBhEjJoPHa8jT2DHS+ZzXNn5u69VXetPJzv+yvcDsIgi7oP53+5v6qqq0716fPd71+PtfTEq0oppZTl2FqJslz9V7GSTCtuxdVKrV3HxVasFdu1cHGaaKWR4Ug2jLTiVBpyS/0nbla0MhhPtNLJqlpJE9xnPcOpMMZ9rAlOqRQDy22M2eWdvRjXBDneK+B7JQqfGlVwceThVJzhddI01UpF2Xx3Xyv9cIzX8TH4WlDDm/Yx1PYYn/I8TysrNu6s+D3XMAo+wEiJYuagfLEmz1+CyjXieonlOVao42BBKQ+LN82x6JwA6KSIRSrCUlU2T1kOlAkWuBrjmrwBdCK4KCfCQ7MMa3VMJctwlZdyqCrno/AIy+IRmw8VZSJoQLBtBfpvHA5x51rA1+HgByEU3990KhmOcD8bp+IeLvYGhE0CsuoShx0e4SmzDsoXMwfli+u3Z6FOAC8q5VIdYa0pj1BB5EkyLDrHAyVQ5E7K5bwSuJTPIxUqs6BVVpTyCVDGKub9cEOHD68kGJhHOqSIRUoOuDgSkU0JFmUVQivfwmvilOMQeUh+lFAvOUKiJb9bl9goT08yQFBKuMtzXFMTtimsU8BSGSlbzByUL1b+/ApVHhMCUHAeLhuBl4Tkp7eh/37/yae1kkU0qWwsw7GFtRqTtNQqQLBwHYTkukNv0Ur3wN5NF3sJ+YOgQcSh5iRa/C1lVNKpwTsEycsXLmrle8+9gEsiAGBD4d3TEGAbBGBKY76XXwOQ3nTLLXhEB3ieke9FRKd4jDtXM4zHtjGMlOabWQfli5mD8sVVPu0v2g5pAMWZxTIcEUzyGCurHmPywpVVrfzFpz6rlcE5rHSLQJF5QIMRSUtvwpXuYe0/8onf0srswf1aqXBcyuMPpSa/GCpibfGARbC0xcC0BKeABmefek4rX/jN39NKK8RQ65EYqhjzFRevHPJZ3S6Q59GPfkwr+24AkNrdFt5r9xwUwubwe+e14lt4sYRGsVkH5YuZg/LFzd3NpCXiKq7bIAAujayMNET1YL5Vc6ysMMKqy2nU2DHu7NkAiEYNnijxTTU8wt3iMk6tDjk0sbsowtzENzX1E5JLCh+XuIlinPR7YDizCuOp2gTbCd4rIgdLfLxzYwY4s6M1gyM56SK/DdVsbhpPxBvGOU1OsehotZl1UL6YOShfrLXztNG4WGpkSr54UTwop48e08o//flfasUl63jH++/XSmOmo5WoD1SxCGE275P0B3hEiCV/7uVXtHLxwjl8iuOxuWZTgmTMqFnGI9O4JT+vjA6aSh3e4x3br9LK1Tt3YszNtlacKtApJah5VXwb8Qj21+AKvrHTJ09jzKtLWrn13nu0cseHPoAvgRZiMCEyM64nvn2zDsoXMwfli2sHmIacPg5frDbGiZTf0X+zy7DInvzmUa3suvZarRy46ZBWOvv24FM9Mpw6GIVi4D57fVErtgES9cxxuJv+/bHvaMURXxDjTTlNxbSwyHBKsMghVyFKFSkKEyLYfe99r1bu/+mHcBEj+GrHPF+ZOCxObPqU1BK+hK/+1de0cvI/TmllYR8NzDEGVGnwywxIogSLUsOLtoyYOShfrMH5y1qrM5w9XlvXygtPfFcr6WpfK2tn4AsaXe7hU42OVu66/ye0Uq0BedycFpmAUsR1PYtPqQHu89RTx7Xy/OlntBI0AFNDEpJKAyPMaPTFxKt6Fc7w8Qhw1yTVWb4E688ihbv55rdq5aYbb8bFdAHFBJwsgVIRctgErQovwPNz4sQJrSxeAbQ2OrDR2guw44IZDOP2B96D+7QY3Ccym3VQvpg5KF+s9CKWqh0AOkaLWFm///Hf0MpTj/2bVj784Ie08tAjH8cNbKYmvnJBK5MNOI56ywixJcx1DJho1J3HUnV2bcN9fDKbOomEK35pOnMYQ7doN6kanq4apF6Sh7AO/FSSdTDhDfu4Jh0w7EVYWL6yppWlS4DoThvwskDKlBOcGsIAt3X03+98/s+08sXPfU4re28Ab/zdv/48Lu5yPPSwmXVQvpg5KF/caATSEtCZU6UDuM4ZqkpqjCT2NMh5iDPhEtZ+kDIlIIOSMEKXMUswC4AhDp3Y4QgepOoAVGc0BGWqXb9bK1aFD2VUvUjW4VuomEdmtuOKF8/gERfh56n5fHqzA4Ww4CdEyyr4TIe54vEISDh06c0uMgqYdSDxeiZPtgS5EvH7c4SuyXXcMmLmoHxxA3HmcIVaTImxmb7Y5qnJEIiRrlzRipPQklpZ14rnYBXXaljF3QUoFZaQqFku8BgIduwYvOKvHX9SKzMkGz/1q7+AgQUcqqTv5DSpJD7OpHGxgL7xtX/QypnHkU109513a+XQB+A48mfA02YZcJ/fBsLWp3doQEszadAlxRwkaxncMqe/vWJhGFkuGeUC6HS8W3TpKyNli5mD8sWN14AGnsvyBwfryKFzdTxiaUPO1CP6caV4w2d689oazJycSQLN7TO8MzFEakq4MAfLsInOvPgSbhyRDokvXVICxP1bBUGyWUcmgXJFR/dgFUCxch5+nrX9ixw0o2VVvnsKghQPWXTGnMloGV9CLPmeA9h6HjOgxozgD5iOOfIkHZ0f48CS3PCiLSNmDsoX12t3oUqxA0NI77j3R7Vy4/UHtSJM6chXvqqVudYOreybv0YrDd7QpffYagJMxmPQqqDOhUl4yVI6qBlvknWdxfTx0kJcOgHudOEc4MXZhmcduv3tfDVW3fbXtTLsAyQ3wg1eA3iRbG2bT3cdFv/SePR4qsYw/anj8F33h2ubrnnoI+By/gwzjqT+ha+essjFrIPyxcxB+eIuKaz0bgbEcBc6Wrn7538WV9ECOvmlr2jlDx9FxvJsC26ZR//g01qZvwZxbWWJ4wjkyW6QvXQlbYA5SC6IxIWl17WyvcpQvnAe0rNn/v7rWjl29NtaOXAPIOjQ21iXUWQK4eMTFrbF9JPHZEORhafXGXhXFZiljf3IQarXMObRJdinR74MQH7hVVh/H/7ln9PK+z7xEdxHSvk4eOXwGUxiN+ugfDFzUL64DnOqY5oVFl0c/UVG8Ffxf19ydfbt2quVbmdBK56EqgOs2ckKnM8OzROPdfFKClcTrNCZnbjPnsMHtDK7AJRz2gw8VQFujS6MvutuBGGbvwqIoUhjxL/dZL70zC4ZKlt8+JtLSAqvDkFSsXWJRcd7hd6z+XmM8CDNroiutvFrZzAcmpUzVy3wEXiYY/KLto6YOShfrPASzJyAvpfoAtwpn/nkp7Ty0gsvauXm3Tdo5dd+5he1kiaYRX/31bilx+VXFKJzgVdYWGEBixIGy4IaSRTdvxkrwiKGz4I6/U5LBBzGv/opDLpaC2/hhHhEuo6LnR5rw2Zxn2GN7i8XT88vAHUDFqZZPh3mhI5oCA9bHI04MMDUkaPf1MrffR1pkPsOXaeVX/8MmKTqbr6hWQfli5mD8sXNJJ2YoWqPqctjFtFfYorjrbuRHOiw75AzKcr78ZdRfsWcasGiCcmGTedJUOnwGv4aWqxeZ5gpYDqQ8jhUCU6xFVuT4bNoCUN16E92WmzfQXCzPHb2IDsLMhA2J2e2gBSVbLAjAQ1Vn/W8hS/IZmJDwjuz69GQYbjiBeULy42/aMuImYPyxRovggn4nA+L8Z1TR1GOcfG1s1qps9S9GbMktoel2ppBKmA1wAr1WTY7YWckoTqSdCMJS5OIFWpsd1hlXcfGK2e00pWCffFmWwAlhwzntXWkXA5oMjb2gbDlbfi3U/qJ8iWMYzbB4GtDYiwr9z2baQw2e6HwoespToXs2WixxUFQxyNcZi8c/MkfwZjFQhyZXMctI2YOyhcrXcGKSJix7Es1vpS60/ey8m0kYP/NF7+EM8wEiEMmIzVgAY37gKkwxFLtzKDUIpwwYm4BDdp1EBs7WteKO4b5dvHU81rJR4h/SQQ+YWDOJ4lKgTfqXAOPmL3zRoxwHzw2ozEg0T+Ln2BniBYf9TFAKdsAsal6jLVZJEgsTlnm03s5Tj3wwfdr5eAHH8TFE7zFuEZDlW+a8fsx66B8MXNQvrgDNkNrsXJKEmBUD5RJhVh0dp31X7sBB5LDXHNYjpGSO1lwjNhMIKx5wLQ1JkZKQ8WU6YLuCrKjkx6K3/fuAYaEET4e5oDNTgoOVl/HkbENM3A9Yyzeg3tnowE0WHYBAn5DfFN40y77eAcJ2EuVgx8M2d+JgbCuB2gNpB0uo4FqDbE21aT1RxvNopGWTjvOjZQlZg7KF9eSaq8IqzhjbOv5px/Xysbr8G8fvhkc4+Hf/hXcgI4jdXkdClmQmkWYSTEJWaUkWjaPsI/9yT/6U62c/u53tLJrDtj4zl96GBcvEC1fxX4Bis2x1Vk8ffkU6nk7NUCZdwAhtvOIuSlvBNwLfZCWSgR4Ofx2dEXbvecwrmbDf1Xlm0ohjHRp40/54kvofPLkY9/QSjCLbKsb7qWNVtTImF5qW0bMHJQvblPi7Aqcx+H/fY8dZUcDcKdeCP7QnuPCjulYnqMPSPChzlXMmncV8xpyHsWy+qoFOjToAWfShV24xmOHJenjEUh6Es3JBEDhxiBjDXKVwRVc02/iLeIaADCZka09cE1EtFNd8U2JxQqiJY7zjG/qVPFQv8km/ExaaEtxCtNEbSliM733t46YOShf3CEj1PWG1LOzyItdfRo1mEKWFG/I1h7sHxvL1h5yicUSiTqDU4sIKj3+x2BB6SXgzBxJwgN3vRMjY2OlV/7liFZCNurfWwPVqawztrUBotVI8RZ1ls5dPInkydUr2PGkeztQ7urbb9NK4MFNdPUuYqxsYsK8qeXXz+DjXZSqOeQ8asRuuqQ8EsUbsWbth4hteNGWETMH5YtbJc4UtZt0+AQ2g0oxdyma0LbKpFIeF1uMkW2sgzt1WBtbxMfXgEUvPfavOMJcpmtugQmz/Wr0ZFP0KV14HG3Whhswqa6aBVo2fW5iMnb5PhjGPN/i++fAwbKXwLh2bENfx3c/iGztoQdUCep7cUPp1xYhSaBdh0OsqH2TnAD69gWhN0YyVACXJf27iy5tpjZ2y4iZg/LF7ffBi9rbEEuyaJWkbE5oZdxKg8ijWDAiQBNyW7RaB3ZOTL+KG2JhqhSruMsmRRktlmSZhliNNkwIhnOND+iYcEvE2YjDiCV/e/MORB4TEdt8CwKY6vZxTZUYmzji0eJrTWhgsn425h6Uls1iGekGyXYBUplbq5FkUiwp2mWYMjf1aFtHzByUL67jiD+Ex1irnsTcBI0NiCRfr9gMiG1AmhVAUM7S/SgjBAldUMCHxT7okDdex8U5npWw2suNwUM6OZTIAdwNGeAb0zAUp07mMuMo4DAYVRemk8ng2aK2Ks1MmAYpLb4VMz9j5pNXAvK9Cskhk7QdfomB1OKF4jTjQ+Xhm/dTMlKemDkoX9yGJOuQSAjH8FlHFnKXw0QIAHuFiV8lIQhIPw/JFqiQO2UhOFjO0Hl9L+L1Pe4ivaFw5zoRI2BmjueCkPTZqzaki9gmc4voWQ4JpDkbM+YBbhjW6KFmU0rXIY1hkpVU3klapmXjmphNQxxbUqhJ87ibpCCP7E2gmEFaWKwm73rriJmD8sUtGreOGR8iC7JYFTJM4AeekL2omFg0Yvf7tpSh4Ui7QpQje7F3wWn88Mc+qpUqC0ZO/yM8SMePISgfjLBUGywY8VhLMugB0xxWwzXo2hoQBEZ1MJP7Hkbt/J3vuQljnyfytDCejHkINtMPfHavzSd4ll+VhnK0B8fSoZGAzG1NMvqCAimEKWy0zXvdmnVQvpg5KF/cCXskBp4k/wBMIq5raU0ou9ULvBRlaAPZ55rulJCUYigzDYpSPfxunmJW87fQdmMtxkaKDvsXrXB/INeWLEEMrMaa1pRm4ICB8p5Lf/I+QJB6y7v0X88VPw93BaqQtGwQY+lUt+Y7OOIB7gJJwCbgyF4hRdNZ1sdNCntQspLk62QrFWWkbDFzUL64WUbvh01UYYHnzAwquZpduLWzMfDh7PGTWqmyiN7twvDJuEVjVbwotFykME3c4zV6Y5IQEbG5Ovu20Ts0ZmeP3JEUHXI5/oYSZhKk3PA6YQXr5TMgdQuPA15CJUkLpEPiC0+ARZMxlMpppAQ02twHhHG0VfYnGdMHJBvA7bwWTZwy9h8Y8i0kzTOnJ8msg/LFzEH5Yg0W4dWp0xsjfowiOMVGHGePYFu0f/7y32rFJqq4zA3ImQHYkOZsSjIA6Xci4+rW8anoMjMBQnqHOIwxTb1c3OzMP5DgFJ1VasJfVcjQmN3qaGVITqf4pvLGCaPzY1aX1NgryWJmuEtDbEKn2RID91kNp+66F3zvbT/+Y7h1C5ZdP2OPApbNpgOzJ9GWETMH5YtruVgRo4TLUOJEsnkq86XtiM0SBSDIQyzFzTUYS8rEn1xs2swbss31Bnf98OodrazTw2zzmrTw/m7eHVZMRlFy+ooTMejol5FTGYmN5AeJuBbeiwUxysnhXBoxIlZvIRkpGcCVVGHUrJqyKI9ecclCrzCZM+deSzZr8cw6KF/MHJQv1mQVMXSfLpd4FabHn3z6s1o5fQIW2T13wOXyvvu4gwZ9s74EuJnhU1g+IkUIqRgA/0pMasrBUopIOJAmZ8KMo5wQJoFChzlIR44hRfxJ7jg5ew36gT/yyd/BDdl4LbFMHG3LiJmD8sWNe/Ae+8wk9BizHnJDsdeexcbxt7JEonEVuzhKjQNTJZVrb1YEnTKJa2/eoKdAJ1t8vP/7t3kTRYBwBeTHVaSLfWB10U+JdSIBKeArTzyrFYcuqR8IuvGvZG29eaM28n8UMwfli1unx0b2R1MrgJfdOxDyftcdd2llnuaJWgVMyXbS9gRWTUrTLBZqwWukS5tLLBK3tkgufQNKxSJbtgaRXSk3mH9F5pZKF6ZVUKbt21DXdttbsQXAzv178aHifaxNf806KF/MHJQvbr+H//LN7R0eg0u3PQuqs/869MOf3842ICy9t3hxxp1bY2ZIxmRDObHI5XoU88sWLGLsOyVbKBeLcmnoQY/W+iXUtTV9mKWuVBOT/MxsBxbdcNthrczugY2muMdBsQ8I06XMOihfzByUL26z2oHKNoMZN7OYm8PKsrl9c4u1ZuEQJEEQIyj8PLLEMO0SflRk98kmYSzOyuXiLYFFlvAiRt7rxJCYlXduxLz0GEekdNhnq6VUaJU3Zboq4y/aMmLmoHyx8lPopBERXnwx1lyuo3X4TAbnkGzz3IkntNJfXdfKC08/qxVJ5M5Y+ymRd5swZRWealpkxKJ8a/wsMgJoOAYYecy79kmH9t90vVa6O0EX9x2GP23nQeQXOax2mdBN5DAdPTO1sVtHzByUL674UjP2PI3pBvG4p7xaYEsNlqG9vIhOjzY3HHz5HDpyWDySMYnIktxjSuYI8vzPYtHvJDH9/4cjkkhge4CgdTbabc/ha5m7cY9WJkP0QtnO+/j7d3P47NLGrb09aSdueqltHTFzUL5Yg+dYMs+uaC73rxf2IvnJow0QpLXLyATo0Ym98jook/VDSj5ZGys70dubc4dE7HQzPonHOxda9QaOZNJHkTaRXCMlJHLEKkJaRKciwEesJo2ptdDFsbsNuwy02FStNYcjzTlGFbl97Yj7xsq3Kk8366B8MXNQvlj5eTbrIJ8Zs9BDOnKIh6NeZ9y/yWwi6QzmTWUTTScISUpi0Sh66hpJsHwjnOmNiDXleMqnbj19jYxLGp6w6Ky4WFqo8KuTTWaLwfNIzAT1H7BPDRZtGTFzUL64yRiZey59sw0fDo2qmDCMmklRqYpkYfJI0c2MR6Zxxvrv8WX6zJuFRfbU7yybHtjmhPBCqTJYZtGLXbQBocL6uEKJWe1CmHK5+9I07Jl1UL6YOShf3F4PRVUe6608cSPHkmksVRxcWQVSwKCLc25LLWRhKlPI4qdkU+tpovSmizW1+LNpLJo6FdGrM2Zf3JgMxyH++szhtMnlAu4oJ9vGScSwIInFcEy/6y0jZg7Kl/8Ed/vmW2uMbn4AAAAASUVORK5CYII=" alt="뚠카롱" style="width:36px;height:36px;image-rendering:pixelated;border-radius:8px;flex-shrink:0"><h1 id="pageTitle">뚠카롱</h1>
+    <div style="display:flex;gap:6px;align-items:center">
+        <span class="header-badge" id="anniversaryBadge">...</span>
+        <button class="header-btn" onclick="fetchData()"><i class="fas fa-sync-alt"></i></button>
+    </div>
+</div>
+
+<!-- Content -->
+<div id="content"></div>
+
+<!-- Bottom Nav -->
+<div class="bottom-nav">
+    <button class="nav-btn active" data-tab="dashboard" onclick="go('dashboard')"><i class="fas fa-th-large"></i><span>현황</span></button>
+    <button class="nav-btn" data-tab="members" onclick="go('members')"><i class="fas fa-users"></i><span>관리</span></button>
+    <button class="nav-btn" data-tab="suro" onclick="go('suro')"><i class="fas fa-edit"></i><span>수로</span></button>
+    <button class="nav-btn" data-tab="analysis" onclick="go('analysis')"><i class="fas fa-chart-bar"></i><span>분석</span></button>
+    <button class="nav-btn" data-tab="more" onclick="go('more')"><i class="fas fa-ellipsis-h"></i><span>더보기</span></button>
+</div>
+
+<!-- Sheet Overlay (reusable bottom sheet) -->
+<div id="sheetOverlay" class="sheet-overlay" onclick="closeSheet(event)">
+    <div class="sheet" id="sheet" onclick="event.stopPropagation()">
+        <div class="sheet-handle"></div>
+        <div class="sheet-title" id="sheetTitle">Title</div>
+        <div class="sheet-body" id="sheetBody"></div>
+    </div>
+</div>
+
+<script>
+// ============= CONSTANTS =============
+const SCRIPT_URL = localStorage.getItem('macaron_script_url') || "https://script.google.com/macros/s/AKfycbwggYNNELvf6Onk9EQoYJPLXWMAtchkRpoNuOtHyp_Scjo3mqj2TQOBvvdR4yEnXoGVTw/exec";
+const SHEET_URL = localStorage.getItem('macaron_sheet_url') || "https://docs.google.com/spreadsheets/d/19V1FFMz9M3gQof6T89nwLSGHEK_OriOint2adLINlY0/edit?gid=1890518105#gid=1890518105";
+const GUILD_START = new Date('2020-03-17');
+const GUILDS = [
+    {id:'ddun',name:'뚠카롱',type:'메인1',icon:'fa-crown',max:200},
+    {id:'ddung',name:'뚱카롱',type:'메인2',icon:'fa-heart',max:200},
+    {id:'bam',name:'밤카롱',type:'부캐1',icon:'fa-moon',max:200},
+    {id:'byeol',name:'별카롱',type:'부캐2',icon:'fa-star',max:200},
+    {id:'dal',name:'달카롱',type:'부캐3',icon:'fa-sun',max:200},
+    {id:'kkul',name:'꿀카롱',type:'부캐4',icon:'fa-cube',max:200},
+];
+const RANKS = {
+    '뚠카롱':['마카롱','다쿠아즈','크라운','파르페','티라미슈','크로칸슈','롤케이크','팬케이크','와플'],
+    '뚱카롱':['마카롱','다쿠아즈','뚠케이크','뚠브레드','수플레','뚠스콘','반죽','반죽(휴면)','아인슈페너'],
+    '밤카롱':['마카롱','다쿠아즈','부팬케이크','부케이크','아인슈페너','반죽','반죽(휴면)'],
+    '별카롱':['마카롱','다쿠아즈','부팬케이크','부케이크','아인슈페너','반죽','반죽(휴면)'],
+    '달카롱':['마카롱','다쿠아즈','부팬케이크','부케이크','아인슈페너','반죽','반죽(휴면)'],
+    '꿀카롱':['마카롱','다쿠아즈','부팬케이크','부케이크','아인슈페너','반죽','반죽(휴면)'],
+};
+const JOBS = ["히어로","다크나이트","팔라딘","불독","썬콜","비숍","보우마스터","신궁","패스파인더","나이트로드","섀도어","듀얼블레이드","캡틴","바이퍼","캐논마스터","미하일","소울마스터","플레임위자드","윈드브레이커","나이트워커","스트라이커","아란","에반","루미너스","메르세데스","팬텀","은월","데몬 슬레이어","데몬 어벤져","블래스터","배틀메이지","와일드헌터","메카닉","제논","카이저","카인","카데나","엔젤릭버스터","라라","호영","아델","일리움","아크","칼리","제로","키네시스","렌"];
+const PER_PAGE = 17;
+
+// ============= STATE =============
+const S = {
+    tab:'dashboard', members:[], history:[], bailHistory:[], suroHeaders:[], events:[], penaltyHistory:[],
+    filter:{guild:'all',search:''},
+    suroFilter:{guild:'all',search:''},
+    analysisGuild:'뚠카롱',
+    analysisSort:{field:'avg',order:'desc'},
+    calYear:new Date().getFullYear(), calMonth:new Date().getMonth(),
+    suroInputs:{},
+    page:{members:1,suro:1,analysis:1},
+    batchMode:false, pendingUpdates:{},
+    kickMode:false, kickSet:new Set(),
+    editingEvent:null, selectedDate:null,
+};
+
+// ============= UTILS =============
+function toast(t){const e=document.getElementById('toast');e.textContent=t;e.classList.add('show');setTimeout(()=>e.classList.remove('show'),2500)}
+function loading(s){document.getElementById('loading').classList.toggle('hide',!s)}
+function $(id){return document.getElementById(id)}
+
+function annivDays(){const d=Math.floor((new Date()-GUILD_START)/(864e5));const y=Math.floor(d/365);return{d,y,r:d%365}}
+function guildCount(g){return S.members.filter(m=>m.guild===g).length}
+function totalSuro(g){if(!S.suroHeaders.length)return 0;const h=S.suroHeaders[S.suroHeaders.length-1];return S.members.filter(m=>m.guild===g).reduce((s,m)=>s+(Number(m.suro?.[h])||0),0)}
+
+function suroPeriod(){
+    const now=new Date(),day=now.getDay();let diff=day-4;if(diff<0)diff+=7;
+    const st=new Date(now);st.setDate(now.getDate()-diff-7);
+    const en=new Date(st);en.setDate(st.getDate()+6);
+    const f=d=>`${String(d.getFullYear()).slice(-2)}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    return `${f(st)}(목) ~ ${f(en)}(수) 수로 점수`;
+}
+
+function roleIcon(r){
+    if(r==='마카롱')return'<i class="fas fa-crown text-blue" style="color:#3b82f6;margin-right:4px;font-size:10px"></i>';
+    if(r==='다쿠아즈')return'<i class="fas fa-crown" style="color:#ec4899;margin-right:4px;font-size:10px"></i>';
+    return'';
+}
+
+function smartSort(a,b,f,o){
+    let va=a[f],vb=b[f];
+    if(f==='mainInfo'){va=a.isMain?a.name:(a.mainCharName||'');vb=b.isMain?b.name:(b.mainCharName||'')}
+    const na=parseFloat(va),nb=parseFloat(vb);
+    if(!isNaN(na)&&!isNaN(nb))return o==='asc'?na-nb:nb-na;
+    const sa=String(va||''),sb=String(vb||'');
+    // Unicode code point order for name field (charCodeAt comparison), locale sort for others
+    if(f==='name'){
+        const cmp=sa<sb?-1:sa>sb?1:0;
+        return o==='asc'?cmp:-cmp;
+    }
+    return o==='asc'?sa.localeCompare(sb,'ko'):sb.localeCompare(sa,'ko');
+}
+
+function multiSearch(members, term, fields){
+    if(!term.trim())return members;
+    const tokens=term.toLowerCase().split(/[\s,]+/).filter(t=>t);
+    return members.filter(m=>tokens.some(t=>fields.some(f=>(m[f]||'').toLowerCase().includes(t))));
+}
+
+function paginate(arr,page){
+    const total=Math.ceil(arr.length/PER_PAGE)||1;
+    const p=Math.min(Math.max(page,1),total);
+    return{data:arr.slice((p-1)*PER_PAGE,p*PER_PAGE),page:p,total};
+}
+
+function pagerHtml(type,page,total){
+    return`<div class="pager"><button onclick="pageGo('${type}',-1)" ${page<=1?'disabled':''}><i class="fas fa-chevron-left"></i></button><span>${page}/${total}</span><button onclick="pageGo('${type}',1)" ${page>=total?'disabled':''}><i class="fas fa-chevron-right"></i></button></div>`;
+}
+function pageGo(type,d){S.page[type]+=d;if(type==='members')renderMemberList();else if(type==='suro')renderSuroList();else if(type==='analysis')renderAnalysis()}
+
+// ============= API =============
+async function fetchData(){
+    loading(true);
+    try{
+        const r=await fetch(SCRIPT_URL+'?t='+Date.now(),{method:'GET',mode:'cors',cache:'no-cache',redirect:'follow'});
+        const j=await r.json();
+        if(j.status==='success'){
+            S.members=(j.data.members||[]).map(m=>({...m,id:String(m.id)})).filter(m=>m.name?.trim());
+            S.history=j.data.history||[];
+            S.suroHeaders=j.data.suroHeaders||[];
+            S.bailHistory=j.data.bailHistory||[];
+            S.events=(j.data.events||[]).map(e=>({id:e.id,date:(e.date||'').split('T')[0].trim(),title:e.title,content:e.content}));
+            S.penaltyHistory=j.data.penaltyHistory||[];
+            updateHeader();
+            go(S.tab);
+        } else toast('데이터 로드 실패');
+    }catch(e){console.error(e);toast('네트워크 오류')}
+    loading(false);
+}
+
+async function sendAction(action,data,skip=false){
+    if(!skip)toast('처리 중...');
+    try{
+        const r=await fetch(SCRIPT_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action,data}),redirect:'follow'});
+        const res=await r.json();
+        if(res.status==='success'){if(!skip){toast('완료!');await fetchData()}return true}
+        else{toast(res.message||'오류');return false}
+    }catch(e){console.error(e);toast('전송 실패');return false}
+}
+
+// ============= HEADER =============
+function updateHeader(){
+    const a=annivDays();
+    $('anniversaryBadge').textContent=`${a.d}일 (${a.y}년 ${a.r}일)`;
+}
+
+// ============= ROUTER =============
+function go(tab){
+    S.tab=tab;
+    document.querySelectorAll('.nav-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
+    const c=$('content');c.innerHTML='';c.scrollTop=0;
+    const titles={dashboard:'뚠카롱',members:'길드원 관리',suro:'수로 점수 입력',analysis:'수로 분석',more:'더보기',bail:'보석금 관리',penalty:'벌점 관리',history:'운영 이력',settings:'설정',sheet:'시트 보기'};
+    $('pageTitle').textContent=titles[tab]||'뚠카롱';
+    if(tab==='dashboard')renderDashboard();
+    else if(tab==='members')renderMembers();
+    else if(tab==='suro')renderSuro();
+    else if(tab==='analysis')renderAnalysis();
+    else if(tab==='more')renderMore();
+    else if(tab==='bail')renderBail();
+    else if(tab==='penalty')renderPenalty();
+    else if(tab==='history')renderHistory();
+    else if(tab==='settings')renderSettings();
+    else if(tab==='sheet')renderSheet();
+}
+
+// ============= DASHBOARD =============
+function renderDashboard(){
+    const c=$('content');
+    const d1=totalSuro('뚠카롱'),d2=totalSuro('뚱카롱');
+    let html=`<div class="fade-in">
+        <div class="stat-row">
+            <div class="stat-card primary" onclick="S.analysisGuild='뚠카롱';go('analysis')"><div class="stat-label">뚠카롱 수로</div><div class="stat-value">${d1.toLocaleString()}</div></div>
+            <div class="stat-card" onclick="S.analysisGuild='뚱카롱';go('analysis')"><div class="stat-label">뚱카롱 수로</div><div class="stat-value text-pink">${d2.toLocaleString()}</div></div>
+        </div>`;
+
+    // Calendar
+    html+=`<div class="card"><div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
+        <span>📅 캘린더</span>
+        <div style="display:flex;gap:12px;align-items:center">
+            <button onclick="moveMonth(-1)" style="border:none;background:none;font-size:14px;color:#999"><i class="fas fa-chevron-left"></i></button>
+            <span style="font-size:11px;font-weight:700;color:#666;min-width:60px;text-align:center">${S.calYear}.${String(S.calMonth+1).padStart(2,'0')}</span>
+            <button onclick="moveMonth(1)" style="border:none;background:none;font-size:14px;color:#999"><i class="fas fa-chevron-right"></i></button>
+        </div>
+    </div><div class="card-body">${buildCalendar()}</div></div>`;
+
+    // Guild Cards
+    html+=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">`;
+    GUILDS.forEach(g=>{
+        const cnt=guildCount(g.name);
+        const pct=Math.min(cnt/g.max*100,100);
+        html+=`<div class="stat-card" onclick="S.filter.guild='${g.name}';go('members')" style="text-align:left;padding:14px">
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px"><i class="fas ${g.icon}" style="color:#ccc;font-size:11px"></i><span style="font-size:12px;font-weight:900">${g.name}</span></div>
+            <div style="font-size:9px;color:#999;font-weight:700">${g.type}</div>
+            <div class="guild-bar"><div class="guild-bar-fill" style="width:${pct}%"></div></div>
+            <div style="font-size:9px;color:#bbb;font-weight:700;text-align:right;margin-top:2px">${cnt}/${g.max}</div>
+        </div>`;
+    });
+    html+=`</div></div>`;
+    c.innerHTML=html;
+}
+
+function buildCalendar(){
+    const y=S.calYear,m=S.calMonth;
+    const first=new Date(y,m,1).getDay(),last=new Date(y,m+1,0).getDate(),prevLast=new Date(y,m,0).getDate();
+    const today=new Date();
+    let h=`<div class="cal-grid"><div class="cal-head" style="color:#f87171">일</div><div class="cal-head">월</div><div class="cal-head">화</div><div class="cal-head">수</div><div class="cal-head" style="color:#ec4899">목</div><div class="cal-head">금</div><div class="cal-head" style="color:#60a5fa">토</div>`;
+    for(let i=first;i>0;i--)h+=`<div class="cal-day dim">${prevLast-i+1}</div>`;
+    for(let d=1;d<=last;d++){
+        const ds=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+        const evts=S.events.filter(e=>e.date===ds);
+        const isToday=today.getFullYear()===y&&today.getMonth()===m&&today.getDate()===d;
+        const isThu=new Date(y,m,d).getDay()===4;
+        let cls='cal-day';
+        if(isToday)cls+=' today';else if(isThu)cls+=' thu';
+        let inner=`${d}`;
+        if(evts.length)inner+=`<div class="dot"></div>`;
+        h+=`<div class="${cls}" onclick="openEventSheet('${ds}')">${inner}</div>`;
+    }
+    const totalC=first+last;const extra=(7-totalC%7)%7;
+    for(let i=1;i<=extra;i++)h+=`<div class="cal-day dim">${i}</div>`;
+    return h+'</div>';
+}
+
+function moveMonth(d){
+    S.calMonth+=d;
+    if(S.calMonth<0){S.calMonth=11;S.calYear--}
+    if(S.calMonth>11){S.calMonth=0;S.calYear++}
+    renderDashboard();
+}
+
+// ============= EVENT SHEET =============
+function openEventSheet(dateStr){
+    S.selectedDate=dateStr;S.editingEvent=null;
+    const evts=S.events.filter(e=>e.date===dateStr);
+    let body=`<div style="margin-bottom:12px;font-size:13px;font-weight:900;color:#666">${dateStr}</div>`;
+    if(evts.length){
+        evts.forEach((e,i)=>{
+            body+=`<div class="event-li" onclick="selectEventEdit(${i})" id="evtLi${i}"><span>${e.title}</span><i class="fas fa-chevron-right" style="color:#ccc;font-size:10px"></i></div>`;
+        });
+    } else body+=`<div style="font-size:11px;color:#ccc;text-align:center;padding:12px">등록된 일정 없음</div>`;
+    body+=`<div style="margin-top:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><span class="form-label" style="margin:0">일정 내용</span><button class="btn-sm btn-ghost" onclick="resetEvtForm()">+ 새 일정</button></div>
+        <div class="form-group"><input type="text" id="evtTitle" class="form-input" placeholder="제목"></div>
+        <div class="form-group"><textarea id="evtContent" class="form-input" rows="3" placeholder="상세 내용" style="resize:none"></textarea></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <button class="btn btn-ghost" id="btnEvtDel" onclick="deleteEvt()" style="display:none">삭제</button>
+            <button class="btn btn-primary" onclick="saveEvt()" style="grid-column:${evts.length?'auto':'-1/-1'}">저장</button>
+        </div>
+    </div>`;
+    openSheet('📅 일정 관리',body);
+    if(evts.length)setTimeout(()=>selectEventEdit(0),50);
+}
+
+function selectEventEdit(idx){
+    const evts=S.events.filter(e=>e.date===S.selectedDate);
+    S.editingEvent=evts[idx]||null;
+    if(!S.editingEvent)return;
+    $('evtTitle').value=S.editingEvent.title||'';
+    $('evtContent').value=S.editingEvent.content||'';
+    $('btnEvtDel').style.display='block';
+    document.querySelectorAll('.event-li').forEach((el,i)=>el.classList.toggle('selected',i===idx));
+}
+function resetEvtForm(){S.editingEvent=null;$('evtTitle').value='';$('evtContent').value='';$('btnEvtDel').style.display='none';document.querySelectorAll('.event-li').forEach(el=>el.classList.remove('selected'))}
+
+async function saveEvt(){
+    const title=$('evtTitle').value.trim(),content=$('evtContent').value.trim();
+    if(!title)return toast('제목을 입력하세요');
+    const ok=await sendAction('save_event',{date:S.selectedDate,title,content,isNew:!S.editingEvent,originalTitle:S.editingEvent?.title||null});
+    if(ok)closeSheet();
+}
+async function deleteEvt(){
+    if(!S.editingEvent||!confirm('삭제하시겠습니까?'))return;
+    const ok=await sendAction('delete_event',{date:S.editingEvent.date,title:S.editingEvent.title,content:S.editingEvent.content});
+    if(ok)closeSheet();
+}
+
+// ============= MEMBERS =============
+function renderMembers(){
+    const c=$('content');
+    let html=`<div class="fade-in">
+        <div class="chip-row">
+            <button class="chip ${S.filter.guild==='all'?'active':''}" onclick="S.filter.guild='all';S.page.members=1;renderMemberList()">전체(${S.members.length}명)</button>
+            ${GUILDS.map(g=>{const cnt=guildCount(g.name);return`<button class="chip ${S.filter.guild===g.name?'pink':''}" onclick="S.filter.guild='${g.name}';S.page.members=1;renderMemberList()">${g.name}(${cnt}명)</button>`}).join('')}
+        </div>
+        <div class="search-bar"><i class="fas fa-search"></i><input id="memberSearch" oninput="S.filter.search=this.value;S.page.members=1;renderMemberList()" placeholder="닉네임 다중 검색 (띄어쓰기 구분)" value="${S.filter.search}"></div>
+        <div style="display:flex;gap:6px;margin-bottom:8px">
+            <button class="btn-sm ${S.kickMode?'btn-danger':'btn-ghost'}" onclick="toggleKickMode()"><i class="fas fa-user-minus"></i> 추방${S.kickMode?' ON':''}</button>
+            ${S.kickMode&&S.kickSet.size?`<button class="btn-sm btn-danger" onclick="bulkKick()">선택 ${S.kickSet.size}명 추방</button>`:''}
+            ${!S.kickMode?`
+            <button class="btn-sm ${S.batchMode?'btn-primary':'btn-ghost'}" onclick="toggleBatch()"><i class="fas fa-edit"></i> 일괄수정${S.batchMode?' ON':''}</button>
+            ${S.batchMode?`<button class="btn-sm btn-pink" onclick="saveBatch()">저장</button>`:''}
+            <button class="btn-sm btn-ghost" onclick="openAddSheet()"><i class="fas fa-plus"></i></button>
+            `:''}
+        </div>
+        <div id="memberListArea"></div>
+    </div>`;
+    c.innerHTML=html;
+    renderMemberList();
+}
+
+function renderMemberList(){
+    let list=S.members.filter(m=>S.filter.guild==='all'||m.guild===S.filter.guild);
+    list=multiSearch(list,S.filter.search,['name','class','role','mainCharName']);
+    list.sort((a,b)=>smartSort(a,b,'name','asc'));
+    const{data,page,total}=paginate(list,S.page.members);
+    S.page.members=page;
+    const area=$('memberListArea');if(!area)return;
+    let html='';
+    data.forEach((m,idx)=>{
+        const gIdx=(page-1)*PER_PAGE+idx+1;
+        const mainName=m.isMain?m.name:(m.mainCharName||'-');
+        const mainMem=S.members.find(x=>x.name===mainName);
+        const targetRole=mainMem?mainMem.role:(m.isMain?m.role:'');
+        let badgeCls='member-badge';
+        if(['티라미슈','파르페','크라운'].includes(targetRole))badgeCls+=' admin-blue';
+        else if(targetRole==='크로칸슈')badgeCls+=' admin-green';
+
+        if(S.kickMode){
+            html+=`<div class="member-item">
+                <input type="checkbox" class="kick-check" ${S.kickSet.has(m.id)?'checked':''} onchange="toggleKickSel('${m.id}')">
+                <div class="member-name">${roleIcon(m.role)}${m.name}<small>${m.guild} · ${m.class||'-'}</small></div>
+                <span class="${badgeCls}">${mainName}</span>
+            </div>`;
+        } else if(S.batchMode){
+            const p=S.pendingUpdates[m.id]||{};
+            const cg=p.guild||m.guild,cr=p.role||m.role,cc=p.class||m.class||'';
+            html+=`<div class="member-item" style="${p.guild||p.role||p.class?'background:#fff7ed':''}">
+                <div style="flex:1;min-width:0">
+                    <div style="font-size:12px;font-weight:700;margin-bottom:6px">${roleIcon(m.role)}${m.name}</div>
+                    <div style="display:flex;gap:4px;flex-wrap:wrap">
+                        <select class="form-input" style="padding:6px 8px;font-size:10px;flex:1;min-width:80px" onchange="stageBatch('${m.id}','guild',this.value)">${GUILDS.map(g=>`<option ${cg===g.name?'selected':''}>${g.name}</option>`).join('')}</select>
+                        <select class="form-input" style="padding:6px 8px;font-size:10px;flex:1;min-width:70px" onchange="stageBatch('${m.id}','role',this.value)">${(RANKS[cg]||RANKS['뚠카롱']).map(r=>`<option ${cr===r?'selected':''}>${r}</option>`).join('')}</select>
+                    </div>
+                </div>
+            </div>`;
+        } else {
+            let roleHtml=`<span style="font-size:10px;color:#999">${m.role}</span>`;
+            if(m.role==='아인슈페너')roleHtml=`<span class="member-badge role-special">${m.role}</span>`;
+            html+=`<div class="member-item" onclick="openMemberSheet('${m.id}')">
+                <div style="width:20px;text-align:center;font-size:10px;color:#ccc;flex-shrink:0">${gIdx}</div>
+                <div class="member-name">${roleIcon(m.role)}${m.name}<small>${m.guild} · ${m.class||'-'} · ${roleHtml}</small></div>
+                <span class="${badgeCls}">${mainName}</span>
+            </div>`;
+        }
+    });
+    html+=pagerHtml('members',page,total);
+    area.innerHTML=html;
+    // Re-render chips active state
+    document.querySelectorAll('.chip-row .chip').forEach(ch=>{
+        const text=ch.textContent;
+        if(text.startsWith('전체'))ch.className=`chip ${S.filter.guild==='all'?'active':''}`;
+        else{const gObj=GUILDS.find(x=>text.startsWith(x.name));if(gObj)ch.className=`chip ${S.filter.guild===gObj.name?'pink':''}`}
+    });
+}
+
+// Batch mode
+function toggleBatch(){S.batchMode=!S.batchMode;if(S.batchMode){S.kickMode=false;S.kickSet.clear()}S.pendingUpdates={};renderMembers()}
+function stageBatch(id,f,v){if(!S.pendingUpdates[id])S.pendingUpdates[id]={id};S.pendingUpdates[id][f]=v;renderMemberList()}
+async function saveBatch(){
+    const ups=Object.values(S.pendingUpdates);
+    if(!ups.length)return toast('수정 없음');
+    if(!confirm(`${ups.length}명 업데이트?`))return;
+    loading(true);let ok=0;
+    for(const u of ups){
+        const m=S.members.find(x=>String(x.id)===String(u.id));if(!m)continue;
+        const p={id:m.id,name:m.name,guild:u.guild||m.guild,role:u.role||m.role,class:u.class||m.class,isMain:m.isMain,mainCharName:m.mainCharName||'',joinDate:m.joinDate||''};
+        try{const r=await fetch(SCRIPT_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'update',data:p}),redirect:'follow'});const res=await r.json();if(res.status==='success')ok++}catch(e){}
+    }
+    loading(false);toast(`${ok}/${ups.length}건 저장`);S.batchMode=false;S.pendingUpdates={};await fetchData();
+}
+
+// Kick mode
+function toggleKickMode(){S.kickMode=!S.kickMode;if(S.kickMode){S.batchMode=false;S.pendingUpdates={}}S.kickSet.clear();renderMembers()}
+function toggleKickSel(id){S.kickSet.has(id)?S.kickSet.delete(id):S.kickSet.add(id);renderMembers()}
+function bulkKick(){
+    if(!S.kickSet.size)return;
+    let body=`<div style="text-align:center;margin-bottom:16px"><div style="font-size:36px;margin-bottom:8px">⚠️</div><div style="font-size:14px;font-weight:900">${S.kickSet.size}명 추방</div></div>
+    <div class="form-group"><div class="form-label">사유</div><input type="text" id="bulkKickReason" class="form-input" placeholder="사유 입력"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px">
+        <button class="btn btn-ghost" onclick="closeSheet()">취소</button>
+        <button class="btn btn-danger" onclick="confirmBulkKick()">추방 확정</button>
+    </div>`;
+    openSheet('일괄 추방',body);
+}
+async function confirmBulkKick(){
+    const reason=$('bulkKickReason')?.value||'';
+    loading(true);let ok=0;
+    for(const id of S.kickSet){
+        const m=S.members.find(x=>x.id===id);
+        if(m){const s=await sendAction('delete',{id,type:'kick',reason},true);if(s)ok++}
+    }
+    loading(false);toast(`${ok}명 추방 완료`);closeSheet();S.kickMode=false;S.kickSet.clear();await fetchData();
+}
+
+// Member detail / edit / add / delete
+function openMemberSheet(id){
+    const m=S.members.find(x=>x.id==id);if(!m)return;
+    const mainName=m.isMain?m.name:(m.mainCharName||'-');
+    let body=`
+        <div style="text-align:center;margin-bottom:16px">
+            <div style="font-size:18px;font-weight:900;margin-bottom:4px">${roleIcon(m.role)}${m.name}</div>
+            <div style="font-size:11px;color:#999">${m.guild} · ${m.role} · ${m.class||'미설정'}</div>
+            <div style="font-size:10px;color:#bbb;margin-top:4px">본캐: ${mainName}</div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <button class="btn btn-ghost" onclick="openEditSheet('${m.id}')"><i class="fas fa-edit"></i> 수정</button>
+            <button class="btn" style="background:#fee2e2;color:#ef4444" onclick="openDeleteSheet('${m.id}')"><i class="fas fa-trash"></i> 삭제</button>
+        </div>`;
+    openSheet('멤버 정보',body);
+}
+
+function openAddSheet(){
+    const g0=GUILDS[0].name;
+    let body=`
+        <div class="form-group"><div class="form-label">닉네임</div><input type="text" id="fName" class="form-input" placeholder="캐릭터명"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <div class="form-group"><div class="form-label">소속</div><select id="fGuild" class="form-input" onchange="updateRoleOpts()">${GUILDS.map(g=>`<option>${g.name}</option>`).join('')}</select></div>
+            <div class="form-group"><div class="form-label">직위</div><select id="fRole" class="form-input">${(RANKS[g0]).map(r=>`<option>${r}</option>`).join('')}</select></div>
+        </div>
+        <div class="form-group"><div class="form-label">직업</div><select id="fClass" class="form-input"><option value="">선택</option>${JOBS.map(j=>`<option>${j}</option>`).join('')}</select></div>
+        <div class="form-group" style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="fIsMain" checked style="width:18px;height:18px" onchange="$('fMainGroup').style.display=this.checked?'none':'block'"><label for="fIsMain" style="font-size:11px;font-weight:700">본캐릭터</label></div>
+        <div class="form-group" id="fMainGroup" style="display:none"><div class="form-label">본캐 닉네임</div><input type="text" id="fMainChar" class="form-input" placeholder="본캐릭명"></div>
+        <button class="btn btn-primary mt-2" onclick="submitMember()">저장</button>`;
+    openSheet('멤버 신규 등록',body);
+}
+
+function openEditSheet(id){
+    closeSheet();
+    setTimeout(()=>{
+        const m=S.members.find(x=>x.id==id);if(!m)return;
+        let body=`<input type="hidden" id="fEditId" value="${m.id}">
+            <div class="form-group"><div class="form-label">닉네임</div><input type="text" id="fName" class="form-input" value="${m.name}" disabled></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                <div class="form-group"><div class="form-label">소속</div><select id="fGuild" class="form-input" onchange="updateRoleOpts()">${GUILDS.map(g=>`<option ${m.guild===g.name?'selected':''}>${g.name}</option>`).join('')}</select></div>
+                <div class="form-group"><div class="form-label">직위</div><select id="fRole" class="form-input">${(RANKS[m.guild]||RANKS['뚠카롱']).map(r=>`<option ${m.role===r?'selected':''}>${r}</option>`).join('')}</select></div>
+            </div>
+            <div class="form-group"><div class="form-label">직업</div><select id="fClass" class="form-input"><option value="">선택</option>${JOBS.map(j=>`<option ${m.class===j?'selected':''}>${j}</option>`).join('')}</select></div>
+            <div class="form-group" style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="fIsMain" ${m.isMain?'checked':''} style="width:18px;height:18px" onchange="$('fMainGroup').style.display=this.checked?'none':'block'"><label for="fIsMain" style="font-size:11px;font-weight:700">본캐릭터</label></div>
+            <div class="form-group" id="fMainGroup" style="display:${m.isMain?'none':'block'}"><div class="form-label">본캐 닉네임</div><input type="text" id="fMainChar" class="form-input" value="${m.mainCharName||''}" placeholder="본캐릭명"></div>
+            <button class="btn btn-primary mt-2" onclick="submitMember()">수정 저장</button>`;
+        openSheet('멤버 정보 수정',body);
+    },200);
+}
+
+function updateRoleOpts(){const g=$('fGuild').value;$('fRole').innerHTML=(RANKS[g]||RANKS['뚠카롱']).map(r=>`<option>${r}</option>`).join('')}
+
+async function submitMember(){
+    const id=$('fEditId')?.value||'';
+    const data={name:$('fName').value.trim(),guild:$('fGuild').value,role:$('fRole').value,class:$('fClass').value,isMain:$('fIsMain').checked,mainCharName:$('fMainChar')?.value.trim()||'',joinDate:new Date().toISOString().split('T')[0]};
+    if(!data.name)return toast('닉네임 필수');
+    if(await sendAction(id?'update':'add',id?{...data,id}:data))closeSheet();
+}
+
+function openDeleteSheet(id){
+    closeSheet();
+    setTimeout(()=>{
+        const m=S.members.find(x=>x.id==id);if(!m)return;
+        let body=`<div style="text-align:center;margin-bottom:16px"><div style="font-size:32px;margin-bottom:8px">🗑️</div><div style="font-size:14px;font-weight:900"><span class="text-red">${m.name}</span> 제거</div></div>
+        <div style="display:flex;gap:6px;margin-bottom:12px">
+            <button id="dtLeave" class="btn-sm btn-primary" onclick="setDelType('leave')" style="flex:1">자진탈퇴</button>
+            <button id="dtKick" class="btn-sm btn-ghost" onclick="setDelType('kick')" style="flex:1">추방</button>
+        </div>
+        <div class="form-group"><input type="text" id="delReason" class="form-input" placeholder="사유"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <button class="btn btn-ghost" onclick="closeSheet()">취소</button>
+            <button class="btn btn-danger" onclick="confirmDel('${m.id}')">삭제 확정</button>
+        </div>`;
+        openSheet('멤버 삭제',body);
+        window._delType='leave';
+    },200);
+}
+function setDelType(t){window._delType=t;$('dtLeave').className=`btn-sm ${t==='leave'?'btn-primary':'btn-ghost'}`;$('dtKick').className=`btn-sm ${t==='kick'?'btn-danger':'btn-ghost'}`}
+async function confirmDel(id){if(await sendAction('delete',{id,type:window._delType||'leave',reason:$('delReason')?.value||''}))closeSheet()}
+
+// ============= SURO =============
+function renderSuro(){
+    const c=$('content');
+    let html=`<div class="fade-in">
+        <div class="chip-row">
+            <button class="chip ${S.suroFilter.guild==='all'?'active':''}" onclick="S.suroFilter.guild='all';S.page.suro=1;renderSuroList()">전체</button>
+            ${GUILDS.map(g=>`<button class="chip ${S.suroFilter.guild===g.name?'pink':''}" onclick="S.suroFilter.guild='${g.name}';S.page.suro=1;renderSuroList()">${g.name}</button>`).join('')}
+        </div>
+        <div class="search-bar"><i class="fas fa-search"></i><input id="suroSearch" oninput="S.suroFilter.search=this.value;S.page.suro=1;renderSuroList()" placeholder="닉네임 검색" value="${S.suroFilter.search}"></div>
+        <div id="suroListArea"></div>
+        <button class="btn btn-primary mt-2" onclick="saveSuro()" id="btnSuroSave" style="position:sticky;bottom:0">수로 점수 저장</button>
+    </div>`;
+    c.innerHTML=html;
+    renderSuroList();
+}
+
+function renderSuroList(){
+    const period=suroPeriod(),prev=S.suroHeaders.slice(-2)[0]||'';
+    let list=S.members.filter(m=>S.suroFilter.guild==='all'||m.guild===S.suroFilter.guild);
+    list=multiSearch(list,S.suroFilter.search,['name']);
+    list.sort((a,b)=>smartSort(a,b,'name','asc'));
+    const{data,page,total}=paginate(list,S.page.suro);
+    S.page.suro=page;
+    const area=$('suroListArea');if(!area)return;
+    let html='';
+    data.forEach(m=>{
+        const cv=S.suroInputs[m.name]!==undefined?S.suroInputs[m.name]:(m.suro?.[period]||'');
+        const pv=Number(m.suro?.[prev]||0);
+        html+=`<div class="suro-item">
+            <div class="suro-name">${roleIcon(m.role)}${m.name}</div>
+            <div class="suro-prev">${pv>0?pv.toLocaleString():'-'}</div>
+            <input type="number" class="suro-input" value="${cv}" oninput="S.suroInputs['${m.name}']=this.value">
+        </div>`;
+    });
+    html+=pagerHtml('suro',page,total);
+    area.innerHTML=html;
+}
+
+async function saveSuro(){
+    const data=Object.entries(S.suroInputs).filter(([n,s])=>s!==''&&s!==null).map(([name,score])=>({name,score}));
+    if(!data.length)return toast('입력된 점수 없음');
+    if(!confirm(`${data.length}명 저장?`))return;
+    const btn=$('btnSuroSave');if(btn){btn.disabled=true;btn.textContent='저장 중...'}
+    if(await sendAction('save_suro',data))S.suroInputs={};
+    else if(btn){btn.disabled=false;btn.textContent='수로 점수 저장'}
+}
+
+// ============= ANALYSIS =============
+function renderAnalysis(){
+    const c=$('content');
+    const g=S.analysisGuild;
+    const targets=S.members.filter(m=>m.guild===g);
+    const recent=S.suroHeaders.slice(-5);
+    const curH=recent[recent.length-1];
+    const total=totalSuro(g);
+    const zeros=targets.filter(m=>(Number(m.suro?.[curH])||0)===0);
+
+    let processed=targets.map(m=>{
+        const scores=recent.map(h=>Number(m.suro?.[h])||0);
+        const avg=scores.length?(scores.reduce((a,b)=>a+b,0)/scores.length).toFixed(1):0;
+        return{...m,avg:Number(avg),curScore:Number(m.suro?.[curH])||0};
+    });
+    processed.sort((a,b)=>{
+        const f=S.analysisSort.field,o=S.analysisSort.order;
+        if(f==='avg')return o==='asc'?a.avg-b.avg:b.avg-a.avg;
+        if(f==='score')return o==='asc'?a.curScore-b.curScore:b.curScore-a.curScore;
+        return smartSort(a,b,f,o);
+    });
+
+    const{data,page,total:tp}=paginate(processed,S.page.analysis);
+    S.page.analysis=page;
+
+    let html=`<div class="fade-in">
+        <div class="chip-row">${GUILDS.map(gg=>`<button class="chip ${g===gg.name?'pink':''}" onclick="S.analysisGuild='${gg.name}';S.page.analysis=1;renderAnalysis()">${gg.name}</button>`).join('')}</div>
+        <div class="stat-row" style="grid-template-columns:1fr 1fr 1fr">
+            <div class="stat-card"><div class="stat-label">총점</div><div class="stat-value" style="font-size:18px">${total.toLocaleString()}</div></div>
+            <div class="stat-card" style="background:#fef2f2;border-color:#fecaca"><div class="stat-label text-red">미참여</div><div class="stat-value text-red" style="font-size:18px">${zeros.length}명</div></div>
+            <div class="stat-card"><div class="stat-label">주차</div><div style="font-size:10px;font-weight:700;color:#666;margin-top:4px">${curH?curH.split(' ')[0]:'없음'}</div></div>
+        </div>
+        <div class="card"><div class="card-header" style="display:flex;justify-content:space-between">
+            <span>데이터 테이블</span>
+            <div style="display:flex;gap:8px">
+                <button class="btn-sm btn-ghost" style="font-size:9px" onclick="setASort('avg')">평균${S.analysisSort.field==='avg'?(S.analysisSort.order==='desc'?'↓':'↑'):''}</button>
+                <button class="btn-sm btn-ghost" style="font-size:9px" onclick="setASort('score')">이번주${S.analysisSort.field==='score'?(S.analysisSort.order==='desc'?'↓':'↑'):''}</button>
+            </div>
+        </div><div class="card-body" style="padding:8px 12px">`;
+    
+    data.forEach((m,i)=>{
+        const rank=(page-1)*PER_PAGE+i+1;
+        html+=`<div class="score-row">
+            <div class="score-rank">${rank}</div>
+            <div class="score-name">${roleIcon(m.role)}${m.name}</div>
+            <div class="score-avg">${m.avg}</div>
+            <div class="score-current ${m.curScore===0?'score-zero':''}">${m.curScore>0?m.curScore.toLocaleString():'0'}</div>
+        </div>`;
+    });
+    html+=pagerHtml('analysis',page,tp);
+    html+=`</div></div></div>`;
+    c.innerHTML=html;
+}
+
+function setASort(f){
+    if(S.analysisSort.field===f)S.analysisSort.order=S.analysisSort.order==='asc'?'desc':'asc';
+    else{S.analysisSort.field=f;S.analysisSort.order='desc'}
+    S.page.analysis=1;renderAnalysis();
+}
+
+// ============= MORE (Sub-menu) =============
+function renderMore(){
+    const c=$('content');
+    const items=[
+        {icon:'fa-gem',label:'보석금 관리',tab:'bail',color:'#ec4899'},
+        {icon:'fa-exclamation-triangle',label:'벌점 관리',tab:'penalty',color:'#ef4444'},
+        {icon:'fa-table',label:'시트 보기',tab:'sheet',color:'#3b82f6'},
+        {icon:'fa-history',label:'운영 이력',tab:'history',color:'#6b7280'},
+        {icon:'fa-cog',label:'설정',tab:'settings',color:'#6b7280'},
+    ];
+    let html=`<div class="fade-in">`;
+    items.forEach(it=>{
+        html+=`<div class="card" style="margin-bottom:8px;cursor:pointer" onclick="go('${it.tab}')"><div style="padding:16px;display:flex;align-items:center;gap:12px">
+            <div style="width:36px;height:36px;border-radius:12px;background:${it.color}15;display:flex;align-items:center;justify-content:center"><i class="fas ${it.icon}" style="color:${it.color};font-size:14px"></i></div>
+            <span style="font-size:13px;font-weight:700">${it.label}</span>
+            <i class="fas fa-chevron-right" style="margin-left:auto;color:#ddd;font-size:12px"></i>
+        </div></div>`;
+    });
+    html+=`</div>`;
+    c.innerHTML=html;
+}
+
+// ============= BAIL =============
+function renderBail(){
+    const c=$('content');
+    const receivers=S.members.filter(m=>m.guild==='뚠카롱'&&['마카롱','다쿠아즈'].includes(m.role)).sort((a,b)=>a.name.localeCompare(b.name,'ko'));
+    const stats={};S.bailHistory.forEach(h=>{stats[h.receiver]=(stats[h.receiver]||0)+(parseInt(h.amount)||0)});
+
+    let html=`<div class="fade-in">
+        <div class="card"><div class="card-header">보석금 납부</div><div class="card-body">
+            <div class="form-group"><div class="form-label">납부자</div><input type="text" id="bailPayer" class="form-input" placeholder="닉네임"></div>
+            <div class="form-group"><div class="form-label">수령자</div><select id="bailReceiver" class="form-input">${receivers.map(r=>`<option value="${r.name}">${r.name} (${r.role})</option>`).join('')}</select></div>
+            <div class="form-group"><div class="form-label">수량</div><input type="number" id="bailAmount" class="form-input" value="1" min="1"></div>
+            <button class="btn btn-primary" onclick="submitBail()" id="btnBail">납부 저장</button>
+        </div></div>
+        <div class="card"><div class="card-header">간부별 수령 총계</div><div class="card-body">
+            ${Object.entries(stats).sort((a,b)=>a[0].localeCompare(b[0],'ko')).map(([n,c])=>`<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f5f5f7"><span style="font-size:11px;font-weight:700">${n}</span><span style="font-size:11px;font-weight:900;color:#ec4899">${c}개</span></div>`).join('')||'<div style="font-size:10px;color:#ccc;text-align:center;padding:12px">없음</div>'}
+        </div></div>
+        <div class="card"><div class="card-header">최근 내역</div><div class="card-body" style="padding:8px 16px">
+            ${[...S.bailHistory].reverse().slice(0,50).map(h=>`<div class="history-item"><div class="history-top"><span class="history-name">${h.payer} → ${h.receiver}</span><span class="history-value">${h.amount}개</span></div><div class="history-sub">${h.date}</div></div>`).join('')||'<div style="font-size:10px;color:#ccc;text-align:center;padding:12px">내역 없음</div>'}
+        </div></div>
+    </div>`;
+    c.innerHTML=html;
+}
+
+async function submitBail(){
+    const payer=$('bailPayer').value.trim(),receiver=$('bailReceiver').value,amount=$('bailAmount').value;
+    if(!payer||!receiver||!amount)return toast('모두 입력하세요');
+    if(!confirm(`${payer} 보석금 ${amount}개 저장?`))return;
+    $('btnBail').disabled=true;$('btnBail').textContent='전송 중...';
+    if(await sendAction('save_bail',{payer,receiver,amount})){$('bailPayer').value='';$('bailAmount').value='1'}
+    else{$('btnBail').disabled=false;$('btnBail').textContent='납부 저장'}
+}
+
+// ============= PENALTY =============
+function renderPenalty(){
+    const c=$('content');
+    const memberOpts=S.members.map(m=>`<option value="${m.name}">${m.name} (${m.guild})</option>`).sort();
+    const counts={};S.penaltyHistory.forEach(h=>{counts[h.name]=(counts[h.name]||0)+Number(h.points)});
+    const active=Object.entries(counts).filter(([,p])=>p>0);
+
+    let html=`<div class="fade-in">
+        <div class="card"><div class="card-header">벌점 부여</div><div class="card-body">
+            <div class="form-group"><div class="form-label">날짜</div><input type="date" id="penDate" class="form-input" value="${new Date().toISOString().split('T')[0]}"></div>
+            <div class="form-group"><div class="form-label">대상자</div><select id="penTarget" class="form-input"><option value="">선택</option>${memberOpts}</select></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                <div class="form-group"><div class="form-label">벌점</div><select id="penPoints" class="form-input">${[1,2,3,4,5,6,7,8,9,10].map(i=>`<option>${i}</option>`).join('')}</select></div>
+                <div></div>
+            </div>
+            <div class="form-group"><div class="form-label">사유</div><textarea id="penReason" class="form-input" rows="3" style="resize:none" placeholder="사유 입력"></textarea></div>
+            <button class="btn btn-danger" onclick="submitPenalty()" id="btnPen">벌점 저장</button>
+        </div></div>
+        ${active.length?`<div class="card"><div class="card-header">현재 벌점자</div><div class="card-body"><div style="display:flex;flex-wrap:wrap;gap:6px">${active.map(([n,p])=>`<span style="display:inline-flex;align-items:center;gap:6px;background:#fef2f2;padding:4px 12px 4px 4px;border-radius:20px;border:1px solid #fecaca"><span style="width:24px;height:24px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:900;color:#ef4444">${p}</span><span style="font-size:11px;font-weight:700;color:#ef4444">${n}</span></span>`).join('')}</div></div></div>`:''}
+        <div class="card"><div class="card-header">부여 이력</div><div class="card-body" style="padding:8px 16px">
+            ${[...S.penaltyHistory].slice(0,50).map(h=>{
+                let dd='-';if(h.date){const dp=h.date.split(' ')[0];if(dp.length>=2)dd=dp.substring(2)}
+                return`<div class="history-item"><div class="history-top"><span class="history-name">${h.name}</span><span style="font-size:12px;font-weight:900;color:#ef4444">${h.points}점</span></div><div class="history-sub">${dd} · ${h.reason}</div></div>`;
+            }).join('')||'<div style="font-size:10px;color:#ccc;text-align:center;padding:12px">이력 없음</div>'}
+        </div></div>
+    </div>`;
+    c.innerHTML=html;
+}
+
+async function submitPenalty(){
+    const date=$('penDate').value,target=$('penTarget').value,points=$('penPoints').value,reason=$('penReason').value.trim();
+    if(!date||!target||!points||!reason)return toast('모두 입력하세요');
+    if(!confirm(`${target}에게 ${points}점 부여?`))return;
+    $('btnPen').disabled=true;$('btnPen').textContent='저장 중...';
+    if(await sendAction('save_penalty',{date,name:target,points,reason}))$('penReason').value='';
+    else{$('btnPen').disabled=false;$('btnPen').textContent='벌점 저장'}
+}
+
+// ============= HISTORY =============
+function renderHistory(){
+    const c=$('content');
+    let html=`<div class="fade-in"><div class="card"><div class="card-header">운영 이력</div><div class="card-body" style="padding:8px 16px">`;
+    if(!S.history.length)html+=`<div style="text-align:center;padding:30px;color:#ccc;font-size:11px;font-weight:700">기록 없음</div>`;
+    else [...S.history].reverse().slice(0,100).forEach(l=>{
+        html+=`<div class="history-item"><div class="history-top"><span class="history-name">${l.name}</span><span style="font-size:9px;padding:2px 8px;background:#f0f0f0;border-radius:6px;font-weight:700;color:#666">${l.category}</span></div><div class="history-sub">${l.date} · ${l.content}</div></div>`;
+    });
+    html+=`</div></div></div>`;
+    c.innerHTML=html;
+}
+
+// ============= SETTINGS =============
+function renderSettings(){
+    const c=$('content');
+    c.innerHTML=`<div class="fade-in"><div class="card"><div class="card-header">시스템 설정</div><div class="card-body">
+        <div class="form-group"><div class="form-label">Apps Script URL</div><input type="text" id="sUrl" class="form-input" value="${localStorage.getItem('macaron_script_url')||SCRIPT_URL}" style="font-size:10px"></div>
+        <div class="form-group"><div class="form-label">Sheet URL</div><input type="text" id="sSheet" class="form-input" value="${localStorage.getItem('macaron_sheet_url')||SHEET_URL}" style="font-size:10px"></div>
+        <button class="btn btn-primary" onclick="saveSettings()">저장 및 재시작</button>
+    </div></div></div>`;
+}
+function saveSettings(){localStorage.setItem('macaron_script_url',$('sUrl').value.trim());localStorage.setItem('macaron_sheet_url',$('sSheet').value.trim());toast('저장됨');setTimeout(()=>location.reload(),800)}
+
+// ============= SHEET VIEW =============
+function renderSheet(){
+    const embed=SHEET_URL.includes('/edit')?SHEET_URL.split('/edit')[0]+'/preview':SHEET_URL;
+    $('content').innerHTML=`<div class="fade-in" style="height:100%;display:flex;flex-direction:column">
+        <button class="btn btn-ghost mb-2" onclick="window.open('${SHEET_URL}','_blank')"><i class="fas fa-external-link-alt"></i> 원본 시트 열기</button>
+        <iframe src="${embed}" style="flex:1;border:none;border-radius:16px;border:1px solid #e5e5e7"></iframe>
+    </div>`;
+}
+
+// ============= BOTTOM SHEET =============
+function openSheet(title,body){
+    $('sheetTitle').textContent=title;
+    $('sheetBody').innerHTML=body;
+    $('sheetOverlay').classList.add('open');
+}
+function closeSheet(e){
+    if(e&&e.target.id!=='sheetOverlay')return;
+    $('sheetOverlay').classList.remove('open');
+}
+
+// ============= INIT =============
+document.addEventListener('DOMContentLoaded',()=>{
+    fetchData();
+});
+</script>
+</body>
+</html>
