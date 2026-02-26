@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>뚠카롱 길드 현황 (Public View)</title>
+    <title>뚠카롱 길드 현황 (Public View v9.1)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -208,10 +208,10 @@
         const SUPABASE_URL = 'https://luglshrfkkeacmefnvlm.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx1Z2xzaHJma2tlYWNtZWZudmxtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIwNjE0NTIsImV4cCI6MjA4NzYzNzQ1Mn0.LrJ-ejXJGqVGzrJyL5nFW45J92-MxrcKuEpE2EGNsIo';
         const supaDb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-        const GUILD_START_DATE = new Date('2020-03-17');
+        let GUILD_START_DATE = new Date('2020-03-17');
         const MAPLE_JOBS = ["히어로", "다크나이트", "팔라딘", "불독", "썬콜", "비숍", "보우마스터", "신궁", "패스파인더","나이트로드", "섀도어", "듀얼블레이드", "캡틴", "바이퍼", "캐논마스터","미하일", "소울마스터", "플레임위자드", "윈드브레이커", "나이트워커", "스트라이커","아란", "에반", "루미너스", "메르세데스", "팬텀", "은월","데몬 슬레이어", "데몬 어벤져", "블래스터", "배틀메이지", "와일드헌터", "메카닉", "제논","카이저", "카인", "카데나", "엔젤릭버스터","라라", "호영", "아델", "일리움", "아크", "칼리","제로", "키네시스", "렌"];
         const baseRanks = ['마카롱', '다쿠아즈'];
-        const initialGuildRanks = {
+        let initialGuildRanks = {
             '뚠카롱': [...baseRanks, '크라운', '파르페', '티라미슈', '크로칸슈', '롤케이크', '팬케이크', '와플', '스콘', '반죽(휴면)'],
             '뚱카롱': [...baseRanks, '뚠케이크', '뚠브레드', '아인슈페너', '부팬케이크', '수플레', '뚠스콘', '부케이크', '반죽(휴면)'],
             '밤카롱': [...baseRanks, '부팬케이크', '부케이크', '아인슈페너', '반죽(휴면)'],
@@ -289,7 +289,7 @@
             return Object.entries(stats).sort((a,b) => a[0].localeCompare(b[0], 'ko'));
         };
 
-        const ROLE_PRIORITY = {'마카롱':0,'다쿠아즈':1,'크라운':2,'파르페':3,'티라미슈':4,'크로칸슈':5,'롤케이크':6,'팬케이크':7,'와플':8,'스콘':9,'반죽':10,'반죽(휴면)':10,'뚠케이크':2,'뚠브레드':3,'아인슈페너':4,'부팬케이크':5,'수플레':6,'뚠스콘':7,'부케이크':8};
+        let ROLE_PRIORITY = {'마카롱':0,'다쿠아즈':1,'크라운':2,'파르페':3,'티라미슈':4,'크로칸슈':5,'롤케이크':6,'팬케이크':7,'와플':8,'스콘':9,'반죽':10,'반죽(휴면)':10,'뚠케이크':2,'뚠브레드':3,'아인슈페너':4,'부팬케이크':5,'수플레':6,'뚠스콘':7,'부케이크':8};
 
         function smartCompare(a, b, field, order) {
             let valA = a[field]; let valB = b[field];
@@ -317,7 +317,7 @@
             return '<span class="w-3 h-3 rounded-full bg-gray-200 mr-2 inline-block"></span>';
         };
 
-        const ROLE_DISPLAY = {
+        let ROLE_DISPLAY = {
             '크라운':  { emoji:'👑', color:'text-amber-600' },
             '파르페':  { emoji:'🍨', color:'text-blue-600' },
             '티라미슈': { emoji:'🍰', color:'text-blue-600' },
@@ -338,13 +338,22 @@
             '뚠스콘':  { emoji:'🍪', color:'text-gray-500' },
             '부케이크': { emoji:'🍰', color:'text-gray-400' }
         };
-        const SURO_EXEMPT = ['크라운','파르페','티라미슈','크로칸슈'];
+        let SURO_EXEMPT = ['크라운','파르페','티라미슈','크로칸슈'];
+        let SURO_EXEMPT_LABEL = '아인슈페너';
+        let SURO_EXEMPT_NOTE = '크로칸슈 이상 — 부캐 전부 수로 면제';
+        let SITE_CONFIG = null;
+        let ROW_HIGHLIGHT_ROLES = {
+            '크라운': { background:'linear-gradient(to right,#FFF9E6,#FFF3CC)', borderLeft:'3px solid #F0C050' },
+            '파르페': { background:'linear-gradient(to right,#EBF0FF,#E4EAFF)', borderLeft:'3px solid #8EA8F0' },
+            '티라미슈': { background:'linear-gradient(to right,#EBF0FF,#E8EDFF)', borderLeft:'3px solid #A0B4E8' },
+            '크로칸슈': { background:'linear-gradient(to right,#EEFFEE,#E5FAE5)', borderLeft:'3px solid #92D050' }
+        };
 
         function formatRankWithSuffix(rank) {
             if (!rank) return '-';
             const d = ROLE_DISPLAY[rank];
             const emoji = d ? d.emoji : '';
-            const suffix = SURO_EXEMPT.includes(rank) ? ' <span class="text-[8px] text-blue-400 font-bold">(아인슈페너)</span>' : '';
+            const suffix = SURO_EXEMPT.includes(rank) ? ` <span class="text-[8px] text-blue-400 font-bold">(${SURO_EXEMPT_LABEL})</span>` : '';
             const displayName = rank === '반죽' ? '반죽(휴면)' : rank;
             return `${emoji} ${displayName}${suffix}`;
         }
@@ -353,7 +362,7 @@
             const d = ROLE_DISPLAY[role];
             if (!d) return `<span class="text-[10px] text-gray-500">${role || '-'}</span>`;
             const displayName = role === '반죽' ? '반죽(휴면)' : role;
-            const suffix = SURO_EXEMPT.includes(role) ? `<span class="text-[7px] text-blue-400 font-bold ml-0.5">(아인슈페너)</span>` : '';
+            const suffix = SURO_EXEMPT.includes(role) ? `<span class="text-[7px] text-blue-400 font-bold ml-0.5">(${SURO_EXEMPT_LABEL})</span>` : '';
             return `<span class="text-[10px] font-bold ${d.color}">${d.emoji} ${displayName}</span>${suffix}`;
         }
 
@@ -391,6 +400,27 @@
                     }
                     return allData;
                 }
+
+                // site_config 로드 (디자인 설정)
+                try {
+                    const { data: cfgRow } = await supaDb.from('site_config').select('config').eq('id', 1).maybeSingle();
+                    if (cfgRow && cfgRow.config) {
+                        const cfg = cfgRow.config;
+                        SITE_CONFIG = cfg;
+                        if (cfg.guilds) appState.guilds = cfg.guilds;
+                        if (cfg.ranks) {
+                            initialGuildRanks = cfg.ranks;
+                            appState.guildRanks = cfg.ranks;
+                        }
+                        if (cfg.roleDisplay) ROLE_DISPLAY = cfg.roleDisplay;
+                        if (cfg.suroExempt) SURO_EXEMPT = cfg.suroExempt;
+                        if (cfg.suroExemptLabel) SURO_EXEMPT_LABEL = cfg.suroExemptLabel;
+                        if (cfg.suroExemptNote) SURO_EXEMPT_NOTE = cfg.suroExemptNote;
+                        if (cfg.rolePriority) ROLE_PRIORITY = cfg.rolePriority;
+                        if (cfg.guildStartDate) GUILD_START_DATE = new Date(cfg.guildStartDate);
+                        if (cfg.rowHighlightRoles) ROW_HIGHLIGHT_ROLES = cfg.rowHighlightRoles;
+                    }
+                } catch(e) { console.warn('site_config 로드 실패, 기본값 사용:', e); }
 
                 const members = await fetchAll('members', 'name');
                 const periods = await fetchAll('suro_periods', 'id', '*');
@@ -451,8 +481,9 @@
                         if (counts[m.guild] !== undefined) counts[m.guild]++;
                     });
                     
-                    const aliases = { '뚠카롱': '뚠', '뚱카롱': '뚱', '밤카롱': '밤', '별카롱': '별', '달카롱': '달', '꿀카롱': '꿀' };
-                    const guildBadgeStyles = {
+                    const aliases = {};
+                    appState.guilds.forEach(g => { aliases[g.name] = g.name.substring(0, 1); });
+                    const defaultBadgeStyles = {
                         '뚠카롱': 'background:#fdf2f8;color:#db2777;border-color:#fbcfe8',
                         '뚱카롱': 'background:#fff1f2;color:#e11d48;border-color:#fecdd3',
                         '밤카롱': 'background:#eef2ff;color:#4f46e5;border-color:#c7d2fe',
@@ -460,7 +491,17 @@
                         '달카롱': 'background:#eff6ff;color:#2563eb;border-color:#bfdbfe',
                         '꿀카롱': 'background:#fffbeb;color:#d97706;border-color:#fde68a'
                     };
-                    
+                    const cfgBadge = SITE_CONFIG?.guildBadgeStyles || {};
+                    const guildBadgeStyles = {};
+                    appState.guilds.forEach(g => {
+                        if (cfgBadge[g.name]) {
+                            const b = cfgBadge[g.name];
+                            guildBadgeStyles[g.name] = `background:${b.bg};color:${b.text};border-color:${b.border}`;
+                        } else {
+                            guildBadgeStyles[g.name] = defaultBadgeStyles[g.name] || 'background:#f3f4f6;color:#666';
+                        }
+                    });
+
                     countEl.innerHTML = appState.guilds.map(g => {
                         const name = aliases[g.name] || g.name.substring(0, 1);
                         const s = guildBadgeStyles[g.name] || 'background:#f3f4f6;color:#666';
@@ -493,6 +534,54 @@
             else if (tab.startsWith('guide_')) window.renderGuide(content, tab.replace('guide_',''));
             const sb = document.getElementById('sidebar'), ov = document.getElementById('sidebarOverlay');
             if (window.innerWidth < 1024) { sb.classList.add('-translate-x-full'); ov.classList.add('hidden'); }
+        };
+
+        window.renderCutoffCards = () => {
+            const cutoffs = SITE_CONFIG?.cutoffs || {};
+            const guildNames = Object.keys(cutoffs);
+            if (guildNames.length === 0) return '<p class="text-xs text-gray-400 col-span-2 text-center py-4">커트라인 설정이 없습니다.</p>';
+
+            const guildIcons = { '뚠카롱': 'fa-crown', '뚱카롱': 'fa-heart' };
+            const guildTitleColors = { '뚠카롱': 'text-pink-500', '뚱카롱': 'text-pink-600' };
+            const guildIconColors = { '뚠카롱': 'text-pink-500', '뚱카롱': 'text-pink-400' };
+
+            return guildNames.map(gName => {
+                const items = cutoffs[gName] || [];
+                const icon = guildIcons[gName] || 'fa-star';
+                const titleColor = guildTitleColors[gName] || 'text-gray-600';
+                const iconColor = guildIconColors[gName] || 'text-gray-400';
+
+                const suroExemptIdx = items.findIndex(c => SURO_EXEMPT.includes(c.rank) && !SURO_EXEMPT.includes((items[items.length > 0 ? items.indexOf(c) + 1 : 0] || {}).rank));
+
+                const rowsHtml = items.map((c, idx) => {
+                    const rd = ROLE_DISPLAY[c.rank] || {};
+                    const emoji = rd.emoji || '';
+                    const cssText = c.cssText || 'text-gray-600';
+                    const cssValue = c.cssValue || 'text-gray-500';
+                    const cssBg = c.cssBg || 'bg-gray-50';
+                    const cssBorder = c.cssBorder || 'border-gray-100';
+                    const cssGradient = c.cssGradient;
+                    const noteHtml = c.note ? ` <span class="text-[9px] text-gray-400">(${c.note})</span>` : '';
+
+                    let rowClass = `${cssBg} border ${cssBorder}`;
+                    let rowStyle = '';
+                    if (cssGradient) {
+                        rowClass = `bg-gradient-to-r ${cssGradient} border ${cssBorder}`;
+                    }
+
+                    let exemptNoteHtml = '';
+                    if (idx === suroExemptIdx && SURO_EXEMPT_NOTE) {
+                        exemptNoteHtml = `</div><div class="text-[9px] text-blue-500 font-bold pl-2.5 -mt-0.5 mb-1 flex items-center gap-1"><i class="fas fa-angle-double-up text-[8px]"></i> ${SURO_EXEMPT_NOTE}`;
+                    }
+
+                    return `<div class="flex justify-between items-center py-1.5 px-2.5 rounded-lg ${rowClass}" style="${rowStyle}"><span class="${cssText}">${emoji} ${c.rank}</span><span class="${cssValue}">${c.label}${noteHtml}</span></div>${exemptNoteHtml}`;
+                }).join('');
+
+                return `<div class="bg-white p-4 lg:p-6 rounded-2xl lg:rounded-[2rem] border border-gray-100 shadow-sm">
+                    <h3 class="text-[10px] lg:text-xs font-bold ${titleColor} uppercase tracking-widest mb-3 flex items-center gap-2"><i class="fas ${icon} ${iconColor}"></i> ${gName} 직위 커트라인</h3>
+                    <div class="space-y-1.5 text-[10px] lg:text-[11px] font-bold">${rowsHtml}</div>
+                </div>`;
+            }).join('');
         };
 
         window.renderDashboard = (container) => {
@@ -539,34 +628,7 @@
                     </div>
                     
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 lg:gap-4">
-                        <div class="bg-white p-4 lg:p-6 rounded-2xl lg:rounded-[2rem] border border-gray-100 shadow-sm">
-                            <h3 class="text-[10px] lg:text-xs font-bold text-pink-500 uppercase tracking-widest mb-3 flex items-center gap-2"><i class="fas fa-crown text-pink-500"></i> 뚠카롱 직위 커트라인</h3>
-                            <div class="space-y-1.5 text-[10px] lg:text-[11px] font-bold">
-                                <div class="flex justify-between items-center py-1.5 px-2.5 rounded-lg bg-gradient-to-r from-yellow-50 to-amber-50 border border-yellow-100"><span class="text-yellow-700">👑 크라운</span><span class="text-yellow-600">TOP 3</span></div>
-                                <div class="flex justify-between items-center py-1.5 px-2.5 rounded-lg" style="background:linear-gradient(to right,#EBF0FF,#E8EDFF);border:1px solid #D6DFFF"><span class="text-blue-700">🍨 파르페</span><span class="text-blue-600">130,000~</span></div>
-                                <div class="flex justify-between items-center py-1.5 px-2.5 rounded-lg" style="background:linear-gradient(to right,#EBF0FF,#E8EDFF);border:1px solid #D6DFFF"><span class="text-blue-700">🍰 티라미슈</span><span class="text-blue-600">95,000 ~ 129,999</span></div>
-                                <div class="flex justify-between items-center py-1.5 px-2.5 rounded-lg" style="background:linear-gradient(to right,#E8FFE8,#E5FAE5);border:1px solid #C8E6C8"><span class="text-green-700">🥐 크로칸슈</span><span class="text-green-600">72,000 ~ 94,999</span></div>
-                                <div class="text-[9px] text-blue-500 font-bold pl-2.5 -mt-0.5 mb-1 flex items-center gap-1"><i class="fas fa-angle-double-up text-[8px]"></i> 크로칸슈 이상 — 부캐 전부 수로 면제</div>
-                                <div class="flex justify-between items-center py-1.5 px-2.5 rounded-lg bg-pink-50 border border-pink-100"><span class="text-pink-700">🍥 롤케이크</span><span class="text-pink-600">50,000 ~ 71,999</span></div>
-                                <div class="flex justify-between items-center py-1.5 px-2.5 rounded-lg bg-pink-50 border border-pink-100"><span class="text-pink-700">🥞 팬케이크</span><span class="text-pink-600">38,000 ~ 49,999</span></div>
-                                <div class="flex justify-between items-center py-1.5 px-2.5 rounded-lg bg-orange-50 border border-orange-100"><span class="text-orange-700">🧇 와플</span><span class="text-orange-500">75,000~ <span class="text-[9px] text-gray-400">(부캐전용)</span></span></div>
-                                <div class="flex justify-between items-center py-1.5 px-2.5 rounded-lg bg-gray-50 border border-gray-100"><span class="text-gray-600">🍪 스콘</span><span class="text-gray-500">0 ~ 37,999</span></div>
-                                <div class="flex justify-between items-center py-1.5 px-2.5 rounded-lg bg-gray-50 border border-gray-100"><span class="text-gray-400">🫓 반죽(휴면)</span><span class="text-gray-400">휴면</span></div>
-                            </div>
-                        </div>
-                        <div class="bg-white p-4 lg:p-6 rounded-2xl lg:rounded-[2rem] border border-gray-100 shadow-sm">
-                            <h3 class="text-[10px] lg:text-xs font-bold text-pink-600 uppercase tracking-widest mb-3 flex items-center gap-2"><i class="fas fa-heart text-pink-400"></i> 뚱카롱 직위 커트라인</h3>
-                            <div class="space-y-1.5 text-[10px] lg:text-[11px] font-bold">
-                                <div class="flex justify-between items-center py-1.5 px-2.5 rounded-lg bg-pink-50 border border-pink-100"><span class="text-pink-700">🎂 뚠케이크</span><span class="text-pink-600">18,000~</span></div>
-                                <div class="flex justify-between items-center py-1.5 px-2.5 rounded-lg bg-pink-50 border border-pink-100"><span class="text-pink-700">🍞 뚠브레드</span><span class="text-pink-600">5,000 ~ 17,999</span></div>
-                                <div class="flex justify-between items-center py-1.5 px-2.5 rounded-lg bg-amber-50 border border-amber-100"><span class="text-amber-700">☕ 아인슈페너</span><span class="text-amber-500">부캐 직위 <span class="text-[9px] text-gray-400">노블O</span></span></div>
-                                <div class="flex justify-between items-center py-1.5 px-2.5 rounded-lg bg-amber-50 border border-amber-100"><span class="text-amber-700">🥞 부팬케이크</span><span class="text-amber-500">부캐 직위 <span class="text-[9px] text-gray-400">노블O</span></span></div>
-                                <div class="flex justify-between items-center py-1.5 px-2.5 rounded-lg bg-orange-50 border border-orange-100"><span class="text-orange-700">🍮 수플레</span><span class="text-orange-500">35,000~ <span class="text-[9px] text-gray-400">(부캐전용)</span></span></div>
-                                <div class="flex justify-between items-center py-1.5 px-2.5 rounded-lg bg-gray-50 border border-gray-100"><span class="text-gray-600">🍪 뚠스콘</span><span class="text-gray-500">0 ~ 4,999</span></div>
-                                <div class="flex justify-between items-center py-1.5 px-2.5 rounded-lg bg-gray-50 border border-gray-100"><span class="text-gray-600">🍰 부케이크</span><span class="text-gray-400">부캐 직위 <span class="text-[9px]">노블X</span></span></div>
-                                <div class="flex justify-between items-center py-1.5 px-2.5 rounded-lg bg-gray-50 border border-gray-100"><span class="text-gray-400">🫓 반죽(휴면)</span><span class="text-gray-400">휴면</span></div>
-                            </div>
-                        </div>
+                        ${window.renderCutoffCards()}
                     </div>
                     <div class="bg-white p-4 lg:p-6 rounded-2xl lg:rounded-[2rem] border border-gray-100 shadow-sm">
                         <h3 class="text-[10px] lg:text-xs font-bold text-pink-600 uppercase tracking-widest mb-3 flex items-center gap-2"><i class="fas fa-users text-pink-500"></i> 뚠카롱 직위별 인원 <span class="text-gray-400 font-bold">(${ddunMembers.length}명)</span></h3>
@@ -1194,7 +1256,7 @@
                 <div class="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-col xl:flex-row items-center gap-4 shrink-0">
                     <div class="flex overflow-x-auto no-scrollbar w-full xl:w-auto gap-2 shrink-0">
                         <button onclick="window.filterByGuild('all')" class="shrink-0 px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${appState.filters.guild === 'all' ? 'bg-gray-800 text-white shadow-md' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'}">전체<span class="inline-flex items-center justify-center min-w-[18px] h-[16px] px-1 rounded-md text-[9px] font-black ${appState.filters.guild === 'all' ? 'bg-white/20 text-white' : 'bg-gray-200/60 text-gray-400'}">${appState.members.length}</span></button>
-                        ${appState.guilds.map(g => { const gc = appState.members.filter(m => m.guild === g.name).length; return `<button onclick="window.filterByGuild('${g.name}')" class="shrink-0 px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${appState.filters.guild === g.name ? 'bg-pink-500 text-white shadow-md' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'}">${g.name}<span class="inline-flex items-center justify-center min-w-[18px] h-[16px] px-1 rounded-md text-[9px] font-black ${appState.filters.guild === g.name ? 'bg-white/25 text-white' : 'bg-gray-200/60 text-gray-400'}">${gc}</span></button>`; }).join('')}
+                        ${appState.guilds.map(g => { const gc = appState.members.filter(m => m.guild === g.name).length; const gColors = {'뚠카롱':['bg-pink-500','bg-pink-400/20'],'뚱카롱':['bg-rose-600','bg-rose-400/20'],'밤카롱':['bg-indigo-500','bg-indigo-400/20'],'별카롱':['bg-amber-500','bg-amber-400/20'],'달카롱':['bg-blue-500','bg-blue-400/20'],'꿀카롱':['bg-orange-500','bg-orange-400/20']}; const [activeBg, activeBadge] = gColors[g.name] || ['bg-pink-500','bg-pink-400/20']; return `<button onclick="window.filterByGuild('${g.name}')" class="shrink-0 px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${appState.filters.guild === g.name ? activeBg + ' text-white shadow-md' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'}">${g.name}<span class="inline-flex items-center justify-center min-w-[18px] h-[16px] px-1 rounded-md text-[9px] font-black ${appState.filters.guild === g.name ? 'bg-white/25 text-white' : 'bg-gray-200/60 text-gray-400'}">${gc}</span></button>`; }).join('')}
                     </div>
                     <div class="relative flex-1 w-full">
                         <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
@@ -1282,14 +1344,9 @@
                     
                     const targetRole = mainMem ? mainMem.role : (m.isMain ? m.role : '');
                     let rowStyle = "";
-                    if (targetRole === '크라운') {
-                        rowStyle = "background:linear-gradient(to right,#FFF9E6,#FFF3CC);border-left:3px solid #F0C050;";
-                    } else if (targetRole === '파르페') {
-                        rowStyle = "background:linear-gradient(to right,#EBF0FF,#E4EAFF);border-left:3px solid #8EA8F0;";
-                    } else if (targetRole === '티라미슈') {
-                        rowStyle = "background:linear-gradient(to right,#EBF0FF,#E8EDFF);border-left:3px solid #A0B4E8;";
-                    } else if (targetRole === '크로칸슈') {
-                        rowStyle = "background:linear-gradient(to right,#EEFFEE,#E5FAE5);border-left:3px solid #92D050;";
+                    const hlCfg = ROW_HIGHLIGHT_ROLES[targetRole];
+                    if (hlCfg) {
+                        rowStyle = `background:${hlCfg.background};${hlCfg.borderLeft ? 'border-left:' + hlCfg.borderLeft + ';' : ''}`;
                     }
 
                     let roleHtml = formatRoleHtml(m.role);
